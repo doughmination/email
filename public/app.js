@@ -732,8 +732,10 @@ backBtn.addEventListener("click", () => {
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
-  await fetch("/api/logout", { method: "POST" });
-  window.location.href = "/login";
+  const res = await fetch("/api/logout", { method: "POST" });
+  const data = await res.json().catch(() => ({}));
+  // Ending the SSO session too, when the server says how.
+  window.location.href = data.endSession || "/login";
 });
 
 document.getElementById("cancelBtn").addEventListener("click", () => {

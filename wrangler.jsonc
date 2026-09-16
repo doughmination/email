@@ -21,10 +21,10 @@
 		}
 	],
 	"vars": {
-		"OIDC_SCOPE": "openid profile email",
+		"OIDC_SCOPE": "openid profile email offline_access",
 		"VAPID_SUBJECT": "mailto:admin@doughmination.win",
 		"COOKIE_SECURE": "true",
-		"OIDC_ISSUER": "https://sso.doughmination.gay",
+		"OIDC_ISSUER": "https://auth.doughmination.gay",
 		"OIDC_CLIENT_ID": "cc067f21-88ca-4927-ac7b-26d21968d2e1",
 		"OIDC_REDIRECT_URI": "https://mail.doughmination.gay/auth/callback",
 		"OIDC_POST_LOGOUT_REDIRECT_URI": "https://mail.doughmination.gay",

@@ -24,6 +24,7 @@ import {
   persistInboundAttachments,
 } from "./lib/attachments";
 import {
+  SESSION_TTL_S,
   createSession,
   sessionUser,
   destroySession,
@@ -35,6 +36,8 @@ import {
   buildAuthUrl,
   completeLogin,
   endSessionUrl,
+  issuerMatches,
+  revokeRefreshToken,
 } from "./lib/oidc";
 import {
   isAdmin,
@@ -190,7 +193,7 @@ const app = new Hono<{ Variables: { user: string } }>();
 const PUBLIC_PATHS = new Set([
   "/login",
   "/login.html",
-  "/login.js",
+  "/sfx.js",
   "/style.css",
   "/favicon.ico",
   "/apple-touch-icon.png",
@@ -199,6 +202,22 @@ const PUBLIC_PATHS = new Set([
   "/sw.js",
   "/manifest.webmanifest",
 ]);
+
+// Session cookies are SameSite=Lax, which still lets sibling subdomains (same
+// site) send them. State-changing requests must come from this origin.
+app.use("/*", async (c, next) => {
+  const method = c.req.method;
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS" || c.req.path === "/webhook/inbound") {
+    return next();
+  }
+  const origin = c.req.header("origin");
+  const site = c.req.header("sec-fetch-site");
+  const self = new URL(c.req.url).origin;
+  if (origin ? origin !== self : site !== undefined && site !== "same-origin" && site !== "none") {
+    return c.json({ error: "Cross-site request refused" }, 403);
+  }
+  return next();
+});
 
 app.use("/*", async (c, next) => {
   const path = c.req.path;
@@ -242,7 +261,11 @@ app.get("/auth/callback", async (c) => {
   const code = c.req.query("code");
   const stateParam = c.req.query("state");
   const err = c.req.query("error");
+  if (err === "access_denied") {
+    return c.text("Your SSO account isn't allowed to use the inbox. Ask an SSO admin to add you to its allowed groups.", 403);
+  }
   if (err) return c.text(`Login failed: ${err}`, 401);
+  if (!issuerMatches(c.req.query("iss"))) return c.text("Login failed: unexpected issuer.", 401);
 
   const pending = await takePending(getCookie(c, "login"));
   deleteCookie(c, "login", { path: "/" });
@@ -252,15 +275,15 @@ app.get("/auth/callback", async (c) => {
   }
 
   try {
-    const { username } = await completeLogin(code, pending);
-    await ensureUser(username);
-    const token = await createSession(username);
+    const tokens = await completeLogin(code, pending);
+    await ensureUser(tokens.username);
+    const token = await createSession(tokens);
     setCookie(c, "session", token, {
       httpOnly: true,
       sameSite: "Lax",
       secure: cookieSecure(),
       path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: SESSION_TTL_S,
     });
     return c.redirect(pending.returnTo);
   } catch (e) {
@@ -276,9 +299,15 @@ app.get("/drafts", (c) => sendAsset(c.req.raw, "/index.html"));
 app.get("/settings", (c) => sendAsset(c.req.raw, "/settings.html"));
 
 app.post("/api/logout", async (c) => {
-  await destroySession(getCookie(c, "session"));
+  const ended = await destroySession(getCookie(c, "session"));
   deleteCookie(c, "session", { path: "/" });
-  return c.json({ ok: true, endSession: endSessionUrl() });
+  if (ended?.refreshToken) {
+    c.executionCtx.waitUntil(
+      revokeRefreshToken(ended.refreshToken).catch((err) => console.warn("refresh token revocation failed", err)),
+    );
+  }
+  // The client navigates here so the SSO session ends as well.
+  return c.json({ ok: true, endSession: endSessionUrl(ended?.idToken ?? null) });
 });
 
 app.get("/api/me", (c) => {
@@ -723,7 +752,7 @@ app.post("/api/owners/unassign", async (c) => {
 
 // Remove a user: permanently delete all their stored mail (attachments too),
 // then drop their reservations and admin rights. They can sign in again via
-// PocketID and are recreated as an ordinary user owning just username@domain.
+// the SSO and are recreated as an ordinary user owning just username@domain.
 app.post("/api/owners/delete-user", async (c) => {
   const actor = c.get("user");
   if (!isAdmin(actor)) return c.json({ error: "Forbidden" }, 403);
