@@ -10,4 +10,4 @@ OIDC_SCOPE=openid profile email offline_access
 OIDC_POST_LOGOUT_REDIRECT_URI=
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:admin@doughmination.win
+VAPID_SUBJECT=mailto:admin@doughmination.gay

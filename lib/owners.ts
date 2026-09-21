@@ -45,6 +45,20 @@ export async function initOwners(): Promise<void> {
   const stored = (await kv().get("owners:config", "json")) as Partial<OwnersConfig> | null;
   if (stored) {
     cfg = normalize(stored);
+    // The domain always comes from owners.json, so changing it there migrates
+    // the stored config. Fully-qualified entries on the old domain are
+    // rewritten to bare names so they follow the new one.
+    const seedDomain = loadSeed().domain;
+    if (seedDomain && cfg.domain !== seedDomain) {
+      const oldSuffix = `@${cfg.domain}`;
+      for (const [user, entries] of Object.entries(cfg.owners)) {
+        cfg.owners[user] = Array.from(
+          new Set(entries.map((e) => (e.endsWith(oldSuffix) ? e.slice(0, -oldSuffix.length) : e))),
+        );
+      }
+      cfg.domain = seedDomain;
+      await save();
+    }
     return;
   }
   cfg = loadSeed();

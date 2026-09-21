@@ -160,7 +160,7 @@ An allowlist entry constitutes Authorisation for the scope expressly stated in t
 
 Requests for Authorisation should be submitted to:
 
-**[admin@doughmination.win](mailto:admin@doughmination.win)**
+**[admin@doughmination.gay](mailto:admin@doughmination.gay)**
 
 Clove Nytrix Doughmination Twilight may maintain Official Licensing Records identifying authorised persons, organisations, and licensing conditions.
 
