@@ -1,7 +1,7 @@
-import { kv } from "./kv";
+import { db } from "./db";
 import { GrantRejected, refreshSession, type Pending, type TokenSet } from "./oidc";
 
-// Sessions live in KV so they can be ended from the server side, and each one
+// Sessions live in D1 so they can be ended from the server side, and each one
 // keeps the SSO's refresh token so it can be re-checked: an account that's
 // disabled or taken out of this app's allowed groups on the SSO is signed out
 // here within RECHECK_AFTER_S.
@@ -24,20 +24,24 @@ interface Session {
 
 const now = () => Math.floor(Date.now() / 1000);
 
-function sessionKey(token: string): string {
-  return `session:${token}`;
+async function deleteSession(token: string): Promise<void> {
+  await db().prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
 }
 
 async function readSession(token: string): Promise<Session | null> {
-  const raw = await kv().get(sessionKey(token));
-  if (!raw) return null;
+  const row = await db()
+    .prepare("SELECT data FROM sessions WHERE token = ? AND expires_at > ?")
+    .bind(token, now())
+    .first<{ data: string }>();
+  if (!row) return null;
+  const raw = row.data;
   try {
     const session = JSON.parse(raw) as Session;
     if (typeof session?.username === "string" && typeof session.verifiedAt === "number") return session;
   } catch {
     // Sessions from before the SSO move were a bare username; they sign in again.
   }
-  await kv().delete(sessionKey(token));
+  await deleteSession(token);
   return null;
 }
 
@@ -45,15 +49,31 @@ async function writeSession(token: string, session: Session): Promise<void> {
   const lifetime = session.refreshToken ? SESSION_TTL_S : UNCHECKED_TTL_S;
   const remaining = session.createdAt + lifetime - now();
   if (remaining < 60) {
-    await kv().delete(sessionKey(token));
+    await deleteSession(token);
     return;
   }
-  await kv().put(sessionKey(token), JSON.stringify(session), { expirationTtl: remaining });
+  await db()
+    .prepare(
+      "INSERT INTO sessions (token, data, expires_at) VALUES (?, ?, ?) " +
+        "ON CONFLICT (token) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at",
+    )
+    .bind(token, JSON.stringify(session), now() + remaining)
+    .run();
+}
+
+// D1 has no TTLs, so expired rows are swept whenever someone signs in.
+async function sweepExpired(): Promise<void> {
+  const ts = now();
+  await db().batch([
+    db().prepare("DELETE FROM sessions WHERE expires_at <= ?").bind(ts),
+    db().prepare("DELETE FROM pending_logins WHERE expires_at <= ?").bind(ts),
+  ]);
 }
 
 export async function createSession(tokens: TokenSet): Promise<string> {
   const token = crypto.randomUUID();
   const ts = now();
+  await sweepExpired();
   await writeSession(token, {
     username: tokens.username,
     sub: tokens.sub,
@@ -76,7 +96,7 @@ async function revalidate(token: string, session: Session): Promise<Session | nu
   if (ts - session.checkedAt < RETRY_AFTER_S) {
     // A recent attempt couldn't reach the SSO; don't retry on every request.
     if (!overdue) return session;
-    await kv().delete(sessionKey(token));
+    await deleteSession(token);
     return null;
   }
 
@@ -90,7 +110,7 @@ async function revalidate(token: string, session: Session): Promise<Session | nu
     try {
       const fresh = await refreshSession(session.refreshToken!);
       if (fresh.sub && fresh.sub !== session.sub) {
-        await kv().delete(sessionKey(token));
+        await deleteSession(token);
         return null;
       }
       const at = now();
@@ -105,12 +125,12 @@ async function revalidate(token: string, session: Session): Promise<Session | nu
       return updated;
     } catch (err) {
       if (err instanceof GrantRejected) {
-        await kv().delete(sessionKey(token));
+        await deleteSession(token);
         return null;
       }
       console.warn("could not reach the SSO to re-check a session", err);
       if (overdue) {
-        await kv().delete(sessionKey(token));
+        await deleteSession(token);
         return null;
       }
       const updated = { ...session, checkedAt: now() };
@@ -140,20 +160,25 @@ export async function destroySession(
 ): Promise<{ refreshToken: string | null; idToken: string | null } | null> {
   if (!token) return null;
   const session = await readSession(token);
-  await kv().delete(sessionKey(token));
+  await deleteSession(token);
   return session ? { refreshToken: session.refreshToken, idToken: session.idToken } : null;
 }
 
 export async function savePending(p: Pending): Promise<string> {
   const id = crypto.randomUUID();
-  await kv().put(`pending:${id}`, JSON.stringify(p), { expirationTtl: PENDING_TTL_S });
+  await db()
+    .prepare("INSERT INTO pending_logins (id, data, expires_at) VALUES (?, ?, ?)")
+    .bind(id, JSON.stringify(p), now() + PENDING_TTL_S)
+    .run();
   return id;
 }
 
 export async function takePending(id: string | undefined): Promise<Pending | null> {
   if (!id) return null;
-  const raw = await kv().get(`pending:${id}`, "json");
-  if (!raw) return null;
-  await kv().delete(`pending:${id}`);
-  return raw as Pending;
+  const row = await db()
+    .prepare("DELETE FROM pending_logins WHERE id = ? RETURNING data, expires_at")
+    .bind(id)
+    .first<{ data: string; expires_at: number }>();
+  if (!row || row.expires_at <= now()) return null;
+  return JSON.parse(row.data) as Pending;
 }

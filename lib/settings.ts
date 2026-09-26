@@ -1,4 +1,4 @@
-import { kv } from "./kv";
+import { getConfig, putConfig } from "./db";
 
 export type Settings = {
   fromAddresses: string[];
@@ -61,7 +61,7 @@ function normalize(raw: unknown): Settings {
 }
 
 export async function getSettings(): Promise<Settings> {
-  const raw = await kv().get("settings", "json");
+  const raw = await getConfig<unknown>("settings");
   return raw ? normalize(raw) : seedFromEnv();
 }
 
@@ -69,7 +69,7 @@ async function mutate(fn: (s: Settings) => void): Promise<Settings> {
   const s = await getSettings();
   fn(s);
   const next = normalize(s);
-  await kv().put("settings", JSON.stringify(next));
+  await putConfig("settings", next);
   return next;
 }
 

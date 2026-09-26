@@ -1,4 +1,7 @@
-import { kv } from "./kv";
+import { db } from "./db";
+
+// D1 caps a row at 2 MB; stay well under it.
+const CHUNK_BYTES = 1_000_000;
 import type { StoredAttachment } from "./store";
 
 export async function saveAttachment(
@@ -12,7 +15,15 @@ export async function saveAttachment(
   const cid = normalizeContentId(contentId);
   const name = filename || "attachment";
   const type = contentType || "application/octet-stream";
-  await kv().put(`att:${id}`, bytes);
+  const inserts = [];
+  for (let idx = 0, off = 0; off < bytes.length || idx === 0; idx++, off += CHUNK_BYTES) {
+    inserts.push(
+      db()
+        .prepare("INSERT INTO attachment_chunks (attachment_id, idx, data) VALUES (?, ?, ?)")
+        .bind(id, idx, bytes.subarray(off, off + CHUNK_BYTES)),
+    );
+  }
+  await db().batch(inserts);
   return { id, filename: name, contentType: type, size: bytes.length, contentId: cid };
 }
 
@@ -35,13 +46,24 @@ export function normalizeContentId(raw: unknown): string | null {
 
 export async function readAttachment(attachmentId: string): Promise<Uint8Array | null> {
   if (!attachmentId) return null;
-  const buf = await kv().get(`att:${attachmentId}`, "arrayBuffer");
-  return buf ? new Uint8Array(buf) : null;
+  const { results } = await db()
+    .prepare("SELECT data FROM attachment_chunks WHERE attachment_id = ? ORDER BY idx")
+    .bind(attachmentId)
+    .all<{ data: ArrayBuffer | number[] }>();
+  if (results.length === 0) return null;
+  const parts = results.map((r) => new Uint8Array(r.data));
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.length;
+  }
+  return out;
 }
 
 export async function deleteAttachment(attachmentId: string): Promise<void> {
   if (!attachmentId) return;
-  await kv().delete(`att:${attachmentId}`);
+  await db().prepare("DELETE FROM attachment_chunks WHERE attachment_id = ?").bind(attachmentId).run();
 }
 
 export async function toResendAttachment(

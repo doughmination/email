@@ -12,6 +12,8 @@ import {
   deleteEmail,
   deleteByThreadKey,
   deleteByOwner,
+  unreadCount,
+  setRead,
   type Folder,
   type StoredEmail,
   type StoredAttachment,
@@ -62,7 +64,7 @@ import {
   subscriptionCount,
   sendToAll,
 } from "./lib/push";
-import { setEnv, env, type Env } from "./lib/kv";
+import { setEnv, env, type Env } from "./lib/db";
 import type { PushSubscription } from "./lib/webpush";
 
 type UploadedAttachment = { filename: string; contentType: string; content: string };
@@ -398,6 +400,12 @@ app.get("/api/emails", async (c) => {
   return c.json(emails);
 });
 
+// Registered before /api/emails/:id so "unread" isn't taken for an id.
+app.get("/api/emails/unread", async (c) => {
+  const user = c.get("user");
+  return c.json({ count: await unreadCount(isAdmin(user) ? undefined : user) });
+});
+
 app.get("/api/emails/:id/attachments/:attachmentId", async (c) => {
   const email = await getEmail(c.req.param("id"));
   if (!email || !canAccessOwner(c.get("user"), email.owner)) {
@@ -605,6 +613,23 @@ app.get("/api/emails/:id/thread", async (c) => {
   }
   const thread = await listByThreadKey(original.threadKey, isAdmin(user) ? undefined : user);
   return c.json(thread.map(inlineCidImages));
+});
+
+// Opening a conversation marks all of it read; "Mark unread" flips it back.
+app.post("/api/emails/:id/thread/read", async (c) => {
+  const user = c.get("user");
+  const original = await getEmail(c.req.param("id"));
+  if (!original || !canAccessOwner(user, original.owner)) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  const body = await c.req.json<{ read?: unknown }>().catch(() => ({ read: undefined }));
+  const read = body.read !== false;
+  const thread = await listByThreadKey(original.threadKey, isAdmin(user) ? undefined : user);
+  await setRead(
+    thread.filter((m) => m.direction === "inbound").map((m) => m.id),
+    read,
+  );
+  return c.json({ ok: true, count: await unreadCount(isAdmin(user) ? undefined : user) });
 });
 
 app.post("/api/drafts", async (c) => {

@@ -1,4 +1,4 @@
-import { kv, hashKey, listNames } from "./kv";
+import { db } from "./db";
 import { sendWebPush, type PushSubscription, type VapidKeys } from "./webpush";
 
 function vapid(): VapidKeys {
@@ -28,21 +28,27 @@ function isSubscription(x: unknown): x is PushSubscription {
 
 export async function addSubscription(sub: PushSubscription): Promise<void> {
   if (!isSubscription(sub)) throw new Error("Invalid subscription");
-  await kv().put(`push:${await hashKey(sub.endpoint)}`, JSON.stringify(sub));
+  await db()
+    .prepare(
+      "INSERT INTO push_subscriptions (endpoint, data) VALUES (?, ?) " +
+        "ON CONFLICT (endpoint) DO UPDATE SET data = excluded.data",
+    )
+    .bind(sub.endpoint, JSON.stringify(sub))
+    .run();
 }
 
 export async function removeSubscription(endpoint: string): Promise<void> {
-  await kv().delete(`push:${await hashKey(endpoint)}`);
+  await db().prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(endpoint).run();
 }
 
 export async function listSubscriptions(): Promise<PushSubscription[]> {
-  const names = await listNames("push:");
-  const rows = await Promise.all(names.map((n) => kv().get(n, "json")));
-  return rows.filter(isSubscription);
+  const { results } = await db().prepare("SELECT data FROM push_subscriptions").all<{ data: string }>();
+  return results.map((r) => JSON.parse(r.data) as unknown).filter(isSubscription);
 }
 
 export async function subscriptionCount(): Promise<number> {
-  return (await listNames("push:")).length;
+  const row = await db().prepare("SELECT COUNT(*) AS n FROM push_subscriptions").first<{ n: number }>();
+  return row?.n ?? 0;
 }
 
 export async function sendToAll(payload: PushPayload): Promise<{ sent: number; pruned: number }> {

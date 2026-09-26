@@ -1,4 +1,4 @@
-import { kv, hashKey, listNames } from "./kv";
+import { db } from "./db";
 import { deleteAttachment } from "./attachments";
 
 export type StoredAttachment = {
@@ -27,7 +27,11 @@ export type StoredEmail = {
   references: string | null;
   threadKey: string;
   owner: string;
+  read: boolean;
 };
+
+// Outbound mail and drafts are read from the start; inbound mail starts unread.
+export type NewEmail = Omit<StoredEmail, "read"> & { read?: boolean };
 
 export type DraftInput = {
   to: string[];
@@ -41,112 +45,164 @@ export type DraftInput = {
   owner: string;
 };
 
-type Rec = StoredEmail & { _seq: string; _inv: string };
+type Row = {
+  id: string;
+  owner: string;
+  folder: Folder;
+  from_addr: string;
+  to_addrs: string;
+  subject: string;
+  html: string | null;
+  text: string | null;
+  received_at: string;
+  attachments: string;
+  direction: StoredEmail["direction"];
+  status: StoredEmail["status"];
+  message_id: string | null;
+  in_reply_to: string | null;
+  refs: string | null;
+  thread_key: string;
+  read: number;
+};
 
-const EPOCH_CAP = 10_000_000_000_000;
+const COLUMNS =
+  "id, owner, folder, from_addr, to_addrs, subject, html, text, received_at, attachments, " +
+  "direction, status, message_id, in_reply_to, refs, thread_key, read";
 
 export function folderOf(email: Pick<StoredEmail, "direction" | "status">): Folder {
   if (email.status === "draft") return "drafts";
   return email.direction === "inbound" ? "inbox" : "sent";
 }
 
-function newOrder(): { seq: string; inv: string } {
-  const ms = Date.now();
-  const rand = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+function toEmail(row: Row): StoredEmail {
   return {
-    seq: `${String(ms).padStart(13, "0")}-${rand}`,
-    inv: `${String(EPOCH_CAP - ms).padStart(13, "0")}-${rand}`,
+    id: row.id,
+    from: row.from_addr,
+    to: JSON.parse(row.to_addrs) as string[],
+    subject: row.subject,
+    html: row.html,
+    text: row.text,
+    receivedAt: row.received_at,
+    attachments: JSON.parse(row.attachments) as StoredAttachment[],
+    direction: row.direction,
+    status: row.status,
+    messageId: row.message_id,
+    inReplyTo: row.in_reply_to,
+    references: row.refs,
+    threadKey: row.thread_key,
+    owner: row.owner,
+    read: row.read !== 0,
   };
 }
 
-function toEmail(rec: Rec): StoredEmail {
-  const { _seq, _inv, ...rest } = rec;
-  return rest;
+async function readRow(id: string): Promise<Row | null> {
+  return db().prepare(`SELECT ${COLUMNS} FROM emails WHERE id = ?`).bind(id).first<Row>();
 }
 
-async function readRecord(id: string): Promise<Rec | null> {
-  return (await kv().get(`email:${id}`, "json")) as Rec | null;
+async function deleteRows(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db().batch(ids.map((id) => db().prepare("DELETE FROM emails WHERE id = ?").bind(id)));
 }
 
-async function writeIndexes(rec: Rec): Promise<void> {
-  const jobs: Promise<unknown>[] = [
-    kv().put(`ix:f:${folderOf(rec)}:${rec._inv}:${rec.id}`, ""),
-    hashKey(rec.threadKey).then((h) => kv().put(`ix:t:${h}:${rec._seq}:${rec.id}`, "")),
-  ];
-  if (rec.messageId) {
-    jobs.push(hashKey(rec.messageId).then((h) => kv().put(`ix:m:${h}`, rec.id)));
-  }
-  await Promise.all(jobs);
+export async function addEmail(input: NewEmail): Promise<StoredEmail> {
+  const email: StoredEmail = { ...input, read: input.read ?? input.direction !== "inbound" };
+  const res = await db()
+    .prepare(
+      `INSERT INTO emails (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ` +
+        "ON CONFLICT (id) DO NOTHING",
+    )
+    .bind(
+      email.id,
+      email.owner,
+      folderOf(email),
+      email.from,
+      JSON.stringify(email.to),
+      email.subject,
+      email.html,
+      email.text,
+      email.receivedAt,
+      JSON.stringify(email.attachments),
+      email.direction,
+      email.status,
+      email.messageId,
+      email.inReplyTo,
+      email.references,
+      email.threadKey,
+      email.read ? 1 : 0,
+    )
+    .run();
+  if (res.meta.changes > 0) return email;
+
+  const existing = await readRow(email.id);
+  return existing ? toEmail(existing) : email;
 }
 
-async function deleteIndexes(rec: Rec): Promise<void> {
-  const jobs: Promise<unknown>[] = [
-    kv().delete(`ix:f:${folderOf(rec)}:${rec._inv}:${rec.id}`),
-    hashKey(rec.threadKey).then((h) => kv().delete(`ix:t:${h}:${rec._seq}:${rec.id}`)),
-  ];
-  if (rec.messageId) {
-    jobs.push(hashKey(rec.messageId).then((h) => kv().delete(`ix:m:${h}`)));
-  }
-  await Promise.all(jobs);
-}
-
-function idFromKey(name: string): string {
-  return name.slice(name.lastIndexOf(":") + 1);
-}
-
-export async function addEmail(email: StoredEmail): Promise<StoredEmail> {
-  const existing = await readRecord(email.id);
-  if (existing) return toEmail(existing);
-
-  const { seq, inv } = newOrder();
-  const rec: Rec = { ...email, _seq: seq, _inv: inv };
-  await kv().put(`email:${email.id}`, JSON.stringify(rec));
-  await writeIndexes(rec);
-  return email;
-}
-
+// Newest first within each folder; with no folder given, folders come back in
+// alphabetical order (drafts, inbox, sent).
 export async function listEmails(folder?: Folder, owner?: string) {
-  const prefixes = folder
-    ? [`ix:f:${folder}:`]
-    : ["ix:f:inbox:", "ix:f:sent:", "ix:f:drafts:"];
-
-  const names: string[] = [];
-  for (const p of prefixes) names.push(...(await listNames(p)));
-  names.sort();
-
-  const key = owner?.toLowerCase() ?? null;
-  const records = await Promise.all(names.map((n) => readRecord(idFromKey(n))));
-
-  const out = [];
-  for (const rec of records) {
-    if (!rec) continue;
-    if (key && rec.owner.toLowerCase() !== key) continue;
-    const { html, text, _seq, _inv, ...meta } = rec;
-    out.push(meta);
+  const where: string[] = [];
+  const params: string[] = [];
+  if (folder) {
+    where.push("folder = ?");
+    params.push(folder);
   }
-  return out;
+  if (owner) {
+    where.push("owner = ?");
+    params.push(owner);
+  }
+
+  const sql =
+    `SELECT ${COLUMNS} FROM emails` +
+    (where.length ? ` WHERE ${where.join(" AND ")}` : "") +
+    " ORDER BY folder, seq DESC";
+  const { results } = await db()
+    .prepare(sql)
+    .bind(...params)
+    .all<Row>();
+
+  return results.map((row) => {
+    const { html, text, ...meta } = toEmail(row);
+    return meta;
+  });
 }
 
 export async function getEmail(id: string): Promise<StoredEmail | null> {
-  const rec = await readRecord(id);
-  return rec ? toEmail(rec) : null;
+  const row = await readRow(id);
+  return row ? toEmail(row) : null;
 }
 
 export async function findByMessageId(messageId: string): Promise<StoredEmail | null> {
-  const id = await kv().get(`ix:m:${await hashKey(messageId)}`);
-  return id ? getEmail(id) : null;
+  const row = await db()
+    .prepare(`SELECT ${COLUMNS} FROM emails WHERE message_id = ? ORDER BY seq DESC LIMIT 1`)
+    .bind(messageId)
+    .first<Row>();
+  return row ? toEmail(row) : null;
+}
+
+async function rowsInThread(threadKey: string, owner?: string): Promise<Row[]> {
+  const sql = owner
+    ? `SELECT ${COLUMNS} FROM emails WHERE thread_key = ? AND owner = ? ORDER BY received_at`
+    : `SELECT ${COLUMNS} FROM emails WHERE thread_key = ? ORDER BY received_at`;
+  const stmt = owner ? db().prepare(sql).bind(threadKey, owner) : db().prepare(sql).bind(threadKey);
+  return (await stmt.all<Row>()).results;
 }
 
 export async function listByThreadKey(threadKey: string, owner?: string): Promise<StoredEmail[]> {
-  const names = await listNames(`ix:t:${await hashKey(threadKey)}:`);
-  const ids = [...new Set(names.map(idFromKey))];
-  const key = owner?.toLowerCase() ?? null;
-  const records = await Promise.all(ids.map(readRecord));
+  return (await rowsInThread(threadKey, owner)).map(toEmail);
+}
 
-  return records
-    .filter((rec): rec is Rec => !!rec && (!key || rec.owner.toLowerCase() === key))
-    .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
-    .map(toEmail);
+export async function unreadCount(owner?: string): Promise<number> {
+  const stmt = owner
+    ? db().prepare("SELECT COUNT(*) AS n FROM emails WHERE folder = 'inbox' AND read = 0 AND owner = ?").bind(owner)
+    : db().prepare("SELECT COUNT(*) AS n FROM emails WHERE folder = 'inbox' AND read = 0");
+  return (await stmt.first<{ n: number }>())?.n ?? 0;
+}
+
+export async function setRead(ids: string[], read: boolean): Promise<void> {
+  if (ids.length === 0) return;
+  await db().batch(
+    ids.map((id) => db().prepare("UPDATE emails SET read = ? WHERE id = ?").bind(read ? 1 : 0, id)),
+  );
 }
 
 export async function createDraft(input: DraftInput): Promise<StoredEmail> {
@@ -166,67 +222,76 @@ export async function createDraft(input: DraftInput): Promise<StoredEmail> {
     references: input.references ?? null,
     threadKey: input.threadKey ?? `draft::${crypto.randomUUID()}`,
     owner: input.owner,
+    read: true,
   };
   await addEmail(draft);
   return draft;
 }
 
 export async function updateDraft(id: string, input: DraftInput): Promise<StoredEmail | null> {
-  const rec = await readRecord(id);
-  if (!rec || rec.status !== "draft") return null;
+  const row = await readRow(id);
+  if (!row || row.status !== "draft") return null;
+  const current = toEmail(row);
 
   const keep = new Set(input.attachments.map((a) => a.id).filter(Boolean));
   await Promise.all(
-    rec.attachments
+    current.attachments
       .filter((a) => a.id && !keep.has(a.id))
       .map((a) => deleteAttachment(a.id)),
   );
 
-  const updated: Rec = {
-    ...rec,
-    from: input.from ?? rec.from,
+  const updated: StoredEmail = {
+    ...current,
+    from: input.from ?? current.from,
     to: input.to,
     subject: input.subject,
     html: input.html,
     attachments: input.attachments,
     receivedAt: new Date().toISOString(),
   };
-  await kv().put(`email:${id}`, JSON.stringify(updated));
-  return toEmail(updated);
+  await db()
+    .prepare(
+      "UPDATE emails SET from_addr = ?, to_addrs = ?, subject = ?, html = ?, attachments = ?, received_at = ? " +
+        "WHERE id = ?",
+    )
+    .bind(
+      updated.from,
+      JSON.stringify(updated.to),
+      updated.subject,
+      updated.html,
+      JSON.stringify(updated.attachments),
+      updated.receivedAt,
+      id,
+    )
+    .run();
+  return updated;
 }
 
 export async function deleteDraft(id: string): Promise<boolean> {
-  const rec = await readRecord(id);
-  if (!rec || rec.status !== "draft") return false;
-  await deleteIndexes(rec);
-  await kv().delete(`email:${id}`);
-  return true;
+  const res = await db().prepare("DELETE FROM emails WHERE id = ? AND status = 'draft'").bind(id).run();
+  return res.meta.changes > 0;
 }
 
 export async function deleteEmail(id: string): Promise<StoredEmail | null> {
-  const rec = await readRecord(id);
-  if (!rec) return null;
-  await deleteIndexes(rec);
-  await kv().delete(`email:${id}`);
-  return toEmail(rec);
+  const row = await db()
+    .prepare(`DELETE FROM emails WHERE id = ? RETURNING ${COLUMNS}`)
+    .bind(id)
+    .first<Row>();
+  return row ? toEmail(row) : null;
 }
 
 export async function deleteByThreadKey(threadKey: string): Promise<StoredEmail[]> {
-  const names = await listNames(`ix:t:${await hashKey(threadKey)}:`);
-  const ids = [...new Set(names.map(idFromKey))];
-  const records = (await Promise.all(ids.map(readRecord))).filter((rec): rec is Rec => !!rec);
-  if (records.length === 0) return [];
-
-  await Promise.all(
-    records.flatMap((rec) => [deleteIndexes(rec), kv().delete(`email:${rec.id}`)]),
-  );
-  return records.map(toEmail);
+  const rows = await rowsInThread(threadKey);
+  await deleteRows(rows.map((r) => r.id));
+  return rows.map(toEmail);
 }
 
 // Every message (inbox, sent, drafts) belonging to one mailbox user. Used by the
 // admin "delete user" flow, which wipes a user's mail before removing the user.
 export async function deleteByOwner(owner: string): Promise<StoredEmail[]> {
-  const metas = await listEmails(undefined, owner);
-  const removed = await Promise.all(metas.map((m) => deleteEmail(m.id)));
-  return removed.filter((r): r is StoredEmail => r !== null);
+  const { results } = await db()
+    .prepare(`DELETE FROM emails WHERE owner = ? RETURNING ${COLUMNS}`)
+    .bind(owner)
+    .all<Row>();
+  return results.map(toEmail);
 }

@@ -254,6 +254,23 @@ body::after {
   margin-top: 0.15rem;
 }
 
+.unread-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.list-item.unread .unread-dot {
+  background: var(--pink);
+}
+
+.list-item.unread .subject {
+  color: var(--text);
+  font-weight: 700;
+}
+
 .list-item .time {
   color: var(--overlay0);
   font-size: 0.75rem;

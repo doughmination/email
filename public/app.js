@@ -23,6 +23,8 @@ const lightboxImg = document.getElementById("lightboxImg");
 const fromRow = document.getElementById("fromRow");
 const fromSelect = composeForm.from;
 const toastHost = document.getElementById("toastHost");
+const inboxNavBtn = folderNav.querySelector('[data-folder="inbox"]');
+const BASE_TITLE = document.title;
 
 let emails = [];
 let activeId = null;
@@ -192,6 +194,39 @@ async function loadEmails(folder = activeFolder) {
   const res = await fetch(`/api/emails?folder=${encodeURIComponent(folder)}`);
   emails = await res.json();
   renderList();
+  loadUnreadCount();
+}
+
+// The browser tab reads "(3) Inbox" and the Inbox folder button "Inbox (3)"
+// while anything in the inbox is unread.
+function showUnreadCount(count) {
+  document.title = count > 0 ? `(${count}) ${BASE_TITLE}` : BASE_TITLE;
+  inboxNavBtn.textContent = count > 0 ? `Inbox (${count})` : "Inbox";
+}
+
+async function loadUnreadCount() {
+  try {
+    const res = await fetch("/api/emails/unread");
+    if (res.ok) showUnreadCount((await res.json()).count);
+  } catch (_) {
+    /* Keep whatever count is showing; the next poll will try again. */
+  }
+}
+
+async function setThreadRead(id, read) {
+  const res = await fetch(`/api/emails/${id}/thread/read`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ read }),
+  });
+  if (!res.ok) return;
+  const ids = new Set(currentThread.map((m) => m.id));
+  ids.add(id);
+  for (const e of emails) {
+    if (ids.has(e.id) && e.direction === "inbound") e.read = read;
+  }
+  renderList();
+  showUnreadCount((await res.json()).count);
 }
 
 function renderList() {
@@ -204,7 +239,8 @@ function renderList() {
   listEl.innerHTML = visible
     .map(
       (e) => `
-      <div class="list-item ${e.id === activeId ? "active" : ""}" data-id="${e.id}">
+      <div class="list-item ${e.id === activeId ? "active" : ""} ${e.read === false ? "unread" : ""}" data-id="${e.id}">
+        <span class="unread-dot" aria-label="${e.read === false ? "Unread" : ""}"></span>
         <div class="list-item-main">
           <div class="from">${escapeHtml(activeFolder === "drafts" ? (e.to || []).join(", ") || "(no recipient)" : e.from)}</div>
           <div class="subject">${escapeHtml(e.subject || "(no subject)")}</div>
@@ -284,6 +320,7 @@ async function openEmail(id) {
   const thread = await res.json();
   currentThread = thread;
   const last = thread[thread.length - 1];
+  if (thread.some((m) => m.read === false)) setThreadRead(id, true);
 
   const messagesHtml = thread
     .map(
@@ -310,6 +347,7 @@ async function openEmail(id) {
     <div class="thread-actions">
       <button class="btn-accent" id="replyBtn">Reply</button>
       <button class="btn-ghost" id="forwardBtn">Forward</button>
+      ${thread.some((m) => m.direction === "inbound") ? '<button class="btn-ghost" id="markUnreadBtn">Mark unread</button>' : ""}
       <button class="btn-danger" id="deleteThreadBtn">Delete conversation</button>
     </div>
   `;
@@ -317,6 +355,10 @@ async function openEmail(id) {
   document.getElementById("replyBtn").addEventListener("click", () => openReply(last));
   document.getElementById("forwardBtn").addEventListener("click", () => openForward(last));
   document.getElementById("deleteThreadBtn").addEventListener("click", () => deleteThread(id));
+  document.getElementById("markUnreadBtn")?.addEventListener("click", async () => {
+    await setThreadRead(id, false);
+    closeDetail();
+  });
 
   detailEl.querySelectorAll(".msg-delete").forEach((btn) => {
     btn.addEventListener("click", () => deleteMessage(btn.dataset.id));

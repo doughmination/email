@@ -1,4 +1,4 @@
-import { kv } from "./kv";
+import { getConfig, putConfig } from "./db";
 import { bareAddress } from "./settings";
 import ownersSeed from "../owners.json";
 
@@ -38,11 +38,11 @@ function state(): OwnersConfig {
 
 async function save(): Promise<void> {
   const s = state();
-  await kv().put("owners:config", JSON.stringify(s));
+  await putConfig("owners", s);
 }
 
 export async function initOwners(): Promise<void> {
-  const stored = (await kv().get("owners:config", "json")) as Partial<OwnersConfig> | null;
+  const stored = await getConfig<Partial<OwnersConfig>>("owners");
   if (stored) {
     cfg = normalize(stored);
     // The domain always comes from owners.json, so changing it there migrates
@@ -62,7 +62,7 @@ export async function initOwners(): Promise<void> {
     return;
   }
   cfg = loadSeed();
-  await kv().put("owners:config", JSON.stringify(cfg));
+  await putConfig("owners", cfg);
 }
 
 function expand(entry: string): string {
