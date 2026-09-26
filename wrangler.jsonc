@@ -14,10 +14,11 @@
 		"binding": "ASSETS",
 		"run_worker_first": true
 	},
-	"kv_namespaces": [
+	"d1_databases": [
 		{
-			"binding": "MAILBOX_KV",
-			"id": "9f2023123d284292b796806f5f314338"
+			"binding": "email_db",
+			"database_name": "email-db",
+			"database_id": "5dbd0d25-8c8a-49c8-83c6-768bda4e9c19"
 		}
 	],
 	"vars": {
