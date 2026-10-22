@@ -79,7 +79,7 @@ body {
   background: linear-gradient(135deg, var(--base) 0%, var(--raised) 60%, var(--crust) 100%)
     fixed;
   color: var(--text);
-  font-family: "Comic Code", ui-monospace, monospace;
+  font-family: "Comic Code", ui-monospace, monospace !important;
   font-size: 15px;
 }
 
@@ -112,7 +112,7 @@ body::after {
 }
 
 .mono {
-  font-family: "Comic Code", ui-monospace, monospace;
+  font-family: "Comic Code", ui-monospace, monospace !important;
 }
 
 .app {
