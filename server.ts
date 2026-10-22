@@ -195,7 +195,6 @@ const app = new Hono<{ Variables: { user: string } }>();
 const PUBLIC_PATHS = new Set([
   "/login",
   "/login.html",
-  "/sfx.js",
   "/style.css",
   "/favicon.ico",
   "/apple-touch-icon.png",

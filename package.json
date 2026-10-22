@@ -16,5 +16,9 @@
     "hono": "^4.13.5",
     "jose": "^6.2.10",
     "resend": "^6.24.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "workerd": true
   }
 }
