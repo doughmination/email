@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1721"/>
+      <stop offset="1" stop-color="#0b0a0d"/>
+    </linearGradient>
+    <!-- The same soft pink glow as the composer card. -->
+    <radialGradient id="glow" cx="0.15" cy="0.1" r="0.9">
+      <stop offset="0" stop-color="#eb459e" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#eb459e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="env" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f45fae"/>
+      <stop offset="1" stop-color="#d42f86"/>
+    </linearGradient>
+  </defs>
+
+  <rect id="tile" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#glow)"/>
+
+  <rect x="88" y="140" width="336" height="232" rx="40" fill="url(#env)"/>
+  <path d="M120 180 L256 284 L392 180" fill="none" stroke="#fff1f8" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
