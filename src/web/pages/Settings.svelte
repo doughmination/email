@@ -8,6 +8,8 @@
   import { api } from "../lib/api";
   import { session } from "../lib/state.svelte";
 
+  let name = $state(session.me?.name ?? "");
+  let nameStatus = $state("");
   let subscription = $state<PushSubscription | null>(null);
   let status = $state("");
   const supported = "serviceWorker" in navigator && "PushManager" in window;
@@ -16,6 +18,19 @@
   function keyBytes(b64: string): Uint8Array<ArrayBuffer> {
     const padded = (b64 + "=".repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
     return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+  }
+
+  async function saveName(e: SubmitEvent) {
+    e.preventDefault();
+    nameStatus = "";
+    try {
+      const saved = await api.setName(name);
+      if (session.me) session.me.name = saved.name;
+      name = saved.name ?? "";
+      nameStatus = "Saved.";
+    } catch (err) {
+      nameStatus = (err as Error).message;
+    }
   }
 
   onMount(async () => {
@@ -51,6 +66,16 @@
 
 <div class="page">
   <h1>Settings</h1>
+
+  <section>
+    <h2>Your name</h2>
+    <p class="muted">People see this as the sender of mail you send. Leave it empty to send from just the address.</p>
+    <form class="name" onsubmit={saveName}>
+      <input class="input" bind:value={name} maxlength="100" placeholder="Your name" aria-label="Your name" />
+      <button class="btn accent" disabled={name.trim() === (session.me?.name ?? "")}>Save</button>
+    </form>
+    {#if nameStatus}<p class="muted">{nameStatus}</p>{/if}
+  </section>
 
   <section>
     <h2>Your addresses</h2>
@@ -115,5 +140,15 @@
 
   ul {
     padding-left: 1.1rem;
+  }
+
+  .name {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .name input {
+    flex: 1;
+    min-width: 0;
   }
 </style>

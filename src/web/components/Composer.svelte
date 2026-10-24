@@ -9,15 +9,16 @@
   import X from "@lucide/svelte/icons/x";
   import type { AttachmentInfo, ComposeInput } from "../../shared/types";
   import { api, ApiError } from "../lib/api";
-  import { fmtSize, splitList } from "../lib/format";
+  import { fmtSize, isAddress } from "../lib/format";
   import { router } from "../lib/router.svelte";
   import { changed, composer, session, type ComposeInit } from "../lib/state.svelte";
+  import RecipientInput from "./RecipientInput.svelte";
 
   let { init }: { init: ComposeInit } = $props();
 
   // Copied once: the form owns these from here on.
   // svelte-ignore state_referenced_locally
-  let form = $state({ ...init, attachments: [...init.attachments] });
+  let form = $state({ ...init, to: [...init.to], cc: [...init.cc], bcc: [...init.bcc], attachments: [...init.attachments] });
   let uploading = $state(0);
   let busy = $state(false);
   let error = $state("");
@@ -29,9 +30,9 @@
   function input(): ComposeInput {
     return {
       from: form.from,
-      to: splitList(form.to),
-      cc: splitList(form.cc),
-      bcc: splitList(form.bcc),
+      to: form.to,
+      cc: form.cc,
+      bcc: form.bcc,
       subject: form.subject,
       text: form.text,
       attachmentIds: form.attachments.map((a) => a.id),
@@ -54,7 +55,14 @@
     if (fileInput) fileInput.value = "";
   }
 
+  /** The server would refuse these anyway, less readably. */
+  function badAddress(): string {
+    const bad = [...form.to, ...form.cc, ...form.bcc].find((a) => !isAddress(a));
+    return bad ? `${bad} isn't an email address.` : "";
+  }
+
   async function save() {
+    if ((error = badAddress())) return;
     busy = true;
     error = "";
     try {
@@ -72,6 +80,8 @@
 
   async function send(ev: SubmitEvent) {
     ev.preventDefault();
+    if ((error = badAddress())) return;
+    if (!form.to.length) return void (error = "Add at least one recipient.");
     busy = true;
     error = "";
     try {
@@ -90,7 +100,7 @@
 
   async function discard() {
     if (form.draftId) {
-      await api.deleteMessage(form.draftId);
+      await api.deleteMessage(form.draftId, true);
       changed();
     }
     close();
@@ -116,9 +126,10 @@
         </select>
       </label>
     {/if}
-    <label class="field">To <input bind:value={form.to} placeholder="someone@example.com, …" required /></label>
-    <label class="field">Cc <input bind:value={form.cc} /></label>
-    <label class="field">Bcc <input bind:value={form.bcc} /></label>
+    <!-- Not <label>s: a click on the caption would hit the first pill's remove button. -->
+    <div class="field">To <RecipientInput bind:value={form.to} label="To" placeholder="someone@example.com, …" /></div>
+    <div class="field">Cc <RecipientInput bind:value={form.cc} label="Cc" /></div>
+    <div class="field">Bcc <RecipientInput bind:value={form.bcc} label="Bcc" /></div>
     <label class="field">Subject <input bind:value={form.subject} required /></label>
     <label class="field grow">Message <textarea bind:value={form.text} rows="12"></textarea></label>
 

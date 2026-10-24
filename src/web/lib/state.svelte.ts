@@ -26,9 +26,9 @@ export interface ComposeInit {
   draftId: string | null;
   replyTo: string | null;
   from: string;
-  to: string;
-  cc: string;
-  bcc: string;
+  to: string[];
+  cc: string[];
+  bcc: string[];
   subject: string;
   text: string;
   attachments: AttachmentInfo[];
@@ -62,9 +62,9 @@ export function composeNew() {
     draftId: null,
     replyTo: null,
     from: defaultFrom(),
-    to: "",
-    cc: "",
-    bcc: "",
+    to: [],
+    cc: [],
+    bcc: [],
     subject: "",
     text: "",
     attachments: [],
@@ -78,9 +78,9 @@ export function composeReply(m: Message) {
     draftId: null,
     replyTo: m.id,
     from: ourAddress(m),
-    to: outbound ? m.to.join(", ") : m.from,
-    cc: "",
-    bcc: "",
+    to: outbound ? [...m.to] : [m.from],
+    cc: [],
+    bcc: [],
     subject: prefixed("Re", m.subject),
     text: quote(m),
     attachments: [],
@@ -93,9 +93,9 @@ export function composeForward(m: Message) {
     draftId: null,
     replyTo: null,
     from: ourAddress(m),
-    to: "",
-    cc: "",
-    bcc: "",
+    to: [],
+    cc: [],
+    bcc: [],
     subject: prefixed("Fwd", m.subject),
     text: `\n\n---------- Forwarded message ----------\nFrom: ${m.from}\nTo: ${m.to.join(", ")}\nSubject: ${m.subject}\n\n${m.text ?? ""}`,
     attachments: m.attachments.filter((a) => !a.contentId),
@@ -108,9 +108,9 @@ export function composeDraft(m: Message) {
     draftId: m.id,
     replyTo: null,
     from: m.from,
-    to: m.to.join(", "),
-    cc: m.cc.join(", "),
-    bcc: m.bcc.join(", "),
+    to: [...m.to],
+    cc: [...m.cc],
+    bcc: [...m.bcc],
     subject: m.subject,
     text: m.text ?? "",
     attachments: m.attachments,

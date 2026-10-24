@@ -106,7 +106,7 @@
                 onchange={(e) => act(() => api.admin.saveDomain(d.name, d.enabled, e.currentTarget.value || null))}
               >
                 <option value="">Drop unknown addresses</option>
-                {#each users as u (u.username)}<option value={u.username}>{u.username}</option>{/each}
+                {#each users as u (u.username)}<option value={u.username}>{u.name ? `${u.name} (${u.username})` : u.username}</option>{/each}
               </select>
             </td>
           </tr>
@@ -152,7 +152,7 @@
       <span>→</span>
       <select class="input" bind:value={newAlias.username} required>
         <option value="" disabled>user</option>
-        {#each users as u (u.username)}<option value={u.username}>{u.username}</option>{/each}
+        {#each users as u (u.username)}<option value={u.username}>{u.name ? `${u.name} (${u.username})` : u.username}</option>{/each}
       </select>
       <button class="btn"><Plus size={14} /> Add</button>
     </form>
@@ -167,7 +167,7 @@
         {#each users as u (u.username)}
           <tr>
             <td>
-              {u.username}
+              {#if u.name}<strong>{u.name}</strong> <span class="muted">({u.username})</span>{:else}{u.username}{/if}
               <div class="muted small">{u.addresses.join(", ")}</div>
             </td>
             <td>{u.messageCount}</td>

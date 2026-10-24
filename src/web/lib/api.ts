@@ -3,7 +3,7 @@ import type {
   AttachmentInfo,
   ComposeInput,
   DomainInfo,
-  Folder,
+  ListFolder,
   Me,
   Message,
   Page,
@@ -54,18 +54,26 @@ type Unread = { unread: Record<string, number> };
 const server = {
   me: () => get<Me>("/api/me"),
   logout: () => post<{ endSession: string | null }>("/auth/logout"),
+  setName: (name: string) => patch<{ name: string | null }>("/api/me", { name }),
 
-  threads(folder: Folder, mailbox: string | null, cursor?: string | null) {
+  threads(folder: ListFolder, mailbox: string | null, cursor?: string | null) {
     const q = new URLSearchParams({ folder });
     if (mailbox) q.set("mailbox", mailbox);
     if (cursor) q.set("cursor", cursor);
     return get<Page<ThreadSummary>>(`/api/threads?${q}`);
   },
-  thread: (id: string) => get<Thread>(`/api/threads/${id}`),
+  /** With `bin`, only the part of the thread that's in the Bin. */
+  thread: (id: string, bin = false) => get<Thread>(`/api/threads/${id}${bin ? "?bin=1" : ""}`),
   markThread: (id: string, read: boolean) => post<Unread>(`/api/threads/${id}/read`, { read }),
-  deleteThread: (id: string) => del<{ count: number }>(`/api/threads/${id}`),
+  /** Moves it to the Bin; `forever` deletes what of it is already in the Bin. */
+  deleteThread: (id: string, forever = false) => del<{ count: number }>(`/api/threads/${id}${forever ? "?forever=1" : ""}`),
+  restoreThread: (id: string) => post<{ count: number }>(`/api/threads/${id}/restore`),
+  emptyBin: () => del<{ count: number }>("/api/bin"),
   message: (id: string) => get<Message>(`/api/messages/${id}`),
-  deleteMessage: (id: string) => del<{ count: number }>(`/api/messages/${id}`),
+  /** Moves it to the Bin; `forever` deletes it outright, wherever it is. */
+  deleteMessage: (id: string, forever = false) =>
+    del<{ count: number }>(`/api/messages/${id}${forever ? "?forever=1" : ""}`),
+  restoreMessage: (id: string) => post<{ count: number }>(`/api/messages/${id}/restore`),
   unread: () => get<Unread>("/api/unread"),
   attachmentUrl: (id: string, inline = false) => `/api/attachments/${id}${inline ? "?inline=1" : ""}`,
 

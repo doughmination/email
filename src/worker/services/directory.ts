@@ -64,9 +64,21 @@ function bootstrapAdmins(env: Env): Set<string> {
   );
 }
 
+export async function displayName(env: Env, username: string): Promise<string | null> {
+  const row = await env.DB.prepare("SELECT display_name FROM users WHERE username = ?")
+    .bind(username)
+    .first<{ display_name: string | null }>();
+  return row?.display_name ?? null;
+}
+
+export async function setDisplayName(env: Env, username: string, name: string | null): Promise<void> {
+  await env.DB.prepare("UPDATE users SET display_name = ? WHERE username = ?").bind(name, username).run();
+}
+
 /**
  * Records a sign-in. Users in ADMIN_USERS are made admins every time, so the
- * first admin needs no setup and can't lock themselves out from the UI.
+ * first admin needs no setup and can't lock themselves out from the UI. The
+ * SSO's name only fills in a missing display name, so one set in Settings sticks.
  */
 export async function recordLogin(env: Env, tokens: TokenSet): Promise<void> {
   const username = tokens.username.toLowerCase();
@@ -75,11 +87,12 @@ export async function recordLogin(env: Env, tokens: TokenSet): Promise<void> {
   // One statement, so two sign-ins racing can't both get past a separate check:
   // an existing row is only touched when it's the same SSO account.
   const res = await env.DB.prepare(
-    "INSERT INTO users (username, sub, is_admin, created_at, last_login_at) VALUES (?, ?, ?, ?, ?) " +
+    "INSERT INTO users (username, sub, is_admin, display_name, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?) " +
       "ON CONFLICT (username) DO UPDATE SET last_login_at = excluded.last_login_at, " +
-      "is_admin = MAX(users.is_admin, excluded.is_admin) WHERE users.sub = excluded.sub",
+      "is_admin = MAX(users.is_admin, excluded.is_admin), " +
+      "display_name = COALESCE(users.display_name, excluded.display_name) WHERE users.sub = excluded.sub",
   )
-    .bind(username, tokens.sub, admin, ts, ts)
+    .bind(username, tokens.sub, admin, tokens.name ?? null, ts, ts)
     .run();
   if (res.meta.changes === 0) {
     throw new AccountConflict(`username ${username} already belongs to a different SSO account`);

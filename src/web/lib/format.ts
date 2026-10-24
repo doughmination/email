@@ -22,6 +22,15 @@ export function displayName(addr: string): string {
   return name || addr.replace(/[<>]/g, "");
 }
 
+/** "Ari <ari@x.y>" -> "ari@x.y". */
+export function bareAddress(addr: string): string {
+  return (addr.match(/<([^<>]+)>/)?.[1] ?? addr).trim();
+}
+
+export function isAddress(addr: string): boolean {
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(bareAddress(addr));
+}
+
 /** Splits on , ; and newlines, except inside quotes: "Doe, Jane" <j@x.y> stays whole. */
 export function splitList(raw: string): string[] {
   return (raw.match(/(?:"[^"]*"?|[^,;\n"])+/g) ?? []).map((s) => s.trim()).filter(Boolean);

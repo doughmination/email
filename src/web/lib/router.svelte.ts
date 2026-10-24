@@ -1,7 +1,7 @@
-import type { Folder } from "../../shared/types";
+import type { ListFolder } from "../../shared/types";
 
 export type Route =
-  | { name: "folder"; folder: Folder; threadId: string | null }
+  | { name: "folder"; folder: ListFolder; threadId: string | null }
   | { name: "settings" }
   | { name: "admin" };
 
@@ -21,7 +21,7 @@ function parse(path: string): Route {
   const [first, second] = path.split("/").filter(Boolean);
   if (first === "settings") return { name: "settings" };
   if (first === "admin") return { name: "admin" };
-  const folder: Folder = first === "sent" || first === "drafts" ? first : "inbox";
+  const folder: ListFolder = first === "sent" || first === "drafts" || first === "bin" ? first : "inbox";
   return { name: "folder", folder, threadId: second ?? null };
 }
 

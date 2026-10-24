@@ -78,6 +78,13 @@ function sanitizeUsername(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** The person's name as the SSO knows it, if it says. */
+function pickName(claims: Record<string, unknown>): string | null {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const name = str(claims.name) || [str(claims.given_name), str(claims.family_name)].filter(Boolean).join(" ");
+  return name ? name.slice(0, 100) : null;
+}
+
 function pickUsername(claims: Record<string, unknown>): string {
   const email = typeof claims.email === "string" ? claims.email.split("@")[0] : "";
   const raw =
@@ -133,6 +140,8 @@ export function issuerMatches(env: Env, iss: string | undefined): boolean {
 
 export interface TokenSet {
   username: string;
+  /** From the ID token; absent when the SSO doesn't share one. */
+  name?: string | null;
   sub: string;
   refreshToken: string | null;
   idToken: string;
@@ -197,6 +206,7 @@ export async function completeLogin(env: Env, code: string, pending: Pending): P
 
   return {
     username,
+    name: pickName(payload as Record<string, unknown>),
     sub: String(payload.sub || ""),
     refreshToken: tokens.refresh_token ?? null,
     idToken: tokens.id_token,

@@ -1,7 +1,7 @@
 import type { ComposeInput } from "../../shared/types";
-import { bareAddress, splitAddress } from "../lib/address";
+import { bareAddress, formatAddress, splitAddress } from "../lib/address";
 import { forResend, setMessageAttachments } from "./attachments";
-import { ownedAddress } from "./directory";
+import { displayName, ownedAddress } from "./directory";
 import { ancestry, getMessageRow, insertMessage, resolveThread, snippetOf } from "./messages";
 import { resend } from "./resend";
 
@@ -35,7 +35,7 @@ export async function saveDraft(env: Env, user: string, input: ComposeInput, dra
   if (draftId) {
     const res = await env.DB.prepare(
       "UPDATE messages SET mailbox = ?, from_addr = ?, to_addrs = ?, cc_addrs = ?, bcc_addrs = ?, subject = ?, text = ?, " +
-        "html = ?, snippet = ?, sent_at = ? WHERE id = ? AND owner = ? AND folder = 'drafts'",
+        "html = ?, snippet = ?, sent_at = ? WHERE id = ? AND owner = ? AND folder = 'drafts' AND trashed_at IS NULL",
     )
       .bind(
         from,
@@ -99,7 +99,7 @@ export async function saveDraft(env: Env, user: string, input: ComposeInput, dra
 /** Sends a saved draft through Resend and moves it to Sent. */
 export async function sendDraft(env: Env, user: string, draftId: string): Promise<{ id: string; threadId: string }> {
   const draft = await getMessageRow(env, user, draftId);
-  if (!draft || draft.folder !== "drafts") throw new ComposeError("That draft doesn't exist any more.");
+  if (!draft || draft.folder !== "drafts" || draft.trashed_at !== null) throw new ComposeError("That draft doesn't exist any more.");
 
   const to = JSON.parse(draft.to_addrs) as string[];
   const cc = JSON.parse(draft.cc_addrs) as string[];
@@ -109,6 +109,8 @@ export async function sendDraft(env: Env, user: string, draftId: string): Promis
 
   // Ownership can change between saving and sending; check it again.
   const from = await checkFrom(env, user, draft.from_addr);
+  // Drafts keep the bare address (it's what the From picker matches); the name goes on at send time.
+  const fromHeader = formatAddress(await displayName(env, user), from);
   const domain = splitAddress(from)!.domain;
   // Recording our own Message-ID is what lets replies to it thread properly.
   const messageId = `<${crypto.randomUUID()}@${domain}>`;
@@ -119,7 +121,7 @@ export async function sendDraft(env: Env, user: string, draftId: string): Promis
   const attachments = await forResend(env, user, draftId);
   const { data, error } = await resend(env).emails.send(
     {
-      from,
+      from: fromHeader,
       to,
       cc: cc.length ? cc : undefined,
       bcc: bcc.length ? bcc : undefined,
@@ -137,8 +139,9 @@ export async function sendDraft(env: Env, user: string, draftId: string): Promis
   const now = Date.now();
   await env.DB.batch([
     env.DB.prepare(
-      "UPDATE messages SET folder = 'sent', resend_id = ?, message_id = ?, sent_at = ?, read = 1 WHERE id = ?",
-    ).bind(data.id, messageId, now, draftId),
+      "UPDATE messages SET folder = 'sent', from_addr = ?, resend_id = ?, message_id = ?, sent_at = ?, read = 1 " +
+        "WHERE id = ?",
+    ).bind(fromHeader, data.id, messageId, now, draftId),
     env.DB.prepare("UPDATE threads SET last_at = MAX(last_at, ?) WHERE id = ?").bind(now, draft.thread_id),
   ]);
   return { id: draftId, threadId: draft.thread_id };

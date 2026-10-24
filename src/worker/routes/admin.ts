@@ -109,15 +109,16 @@ export const admin = new Hono<AppEnv>()
   .get("/users", async (c) => {
     const [{ results }, dir] = await Promise.all([
       c.env.DB.prepare(
-        "SELECT u.username, u.is_admin, u.created_at, u.last_login_at, " +
+        "SELECT u.username, u.display_name, u.is_admin, u.created_at, u.last_login_at, " +
           "(SELECT COUNT(*) FROM messages m WHERE m.owner = u.username) AS n FROM users u ORDER BY u.username",
-      ).all<{ username: string; is_admin: number; created_at: number; last_login_at: number; n: number }>(),
+      ).all<{ username: string; display_name: string | null; is_admin: number; created_at: number; last_login_at: number; n: number }>(),
       loadDirectory(c.env),
     ]);
     return c.json(
       results.map(
         (r): UserInfo => ({
           username: r.username,
+          name: r.display_name || null,
           isAdmin: r.is_admin === 1,
           createdAt: r.created_at,
           lastLoginAt: r.last_login_at,

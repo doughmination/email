@@ -4,18 +4,19 @@
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
   import Paperclip from "@lucide/svelte/icons/paperclip";
-  import type { Folder, ThreadSummary } from "../../shared/types";
+  import type { ListFolder, ThreadSummary } from "../../shared/types";
   import { api } from "../lib/api";
   import { displayName, fmtTime } from "../lib/format";
   import { router } from "../lib/router.svelte";
-  import { session } from "../lib/state.svelte";
+  import { changed, session } from "../lib/state.svelte";
 
-  let { folder, selected }: { folder: Folder; selected: string | null } = $props();
+  let { folder, selected }: { folder: ListFolder; selected: string | null } = $props();
 
   let items = $state<ThreadSummary[]>([]);
   let cursor = $state<string | null>(null);
   let loading = $state(false);
   let error = $state("");
+  let confirmEmpty = $state(false);
   /** Bumped on every reload; a response from an older one is dropped. */
   let generation = 0;
 
@@ -52,12 +53,34 @@
     }
   }
 
+  async function emptyBin() {
+    if (!confirmEmpty) return void (confirmEmpty = true);
+    confirmEmpty = false;
+    try {
+      await api.emptyBin();
+      if (selected) router.thread(null);
+      changed();
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+
   function who(t: ThreadSummary) {
-    return folder === "inbox" ? displayName(t.from) : `To: ${t.to.map(displayName).join(", ") || "(nobody yet)"}`;
+    // The Bin mixes folders; whoever it's from reads best there.
+    return folder === "inbox" || folder === "bin" ? displayName(t.from) : `To: ${t.to.map(displayName).join(", ") || "(nobody yet)"}`;
   }
 </script>
 
 <section class="list">
+  {#if folder === "bin" && items.length}
+    <div class="bin-bar">
+      <span class="muted">Deleted after 30 days.</span>
+      <button class="btn danger" onclick={emptyBin} onblur={() => (confirmEmpty = false)}>
+        {confirmEmpty ? "Click again to empty" : "Empty bin"}
+      </button>
+    </div>
+  {/if}
+
   {#if error}
     <p class="error pad">{error}</p>
   {:else if !items.length && !loading}
@@ -197,5 +220,15 @@
 
   .more {
     margin: 1rem;
+  }
+
+  .bin-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.8rem;
   }
 </style>

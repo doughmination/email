@@ -5,14 +5,17 @@ import type { ComposeInput, Me } from "../../shared/types";
 import { isAddress } from "../lib/address";
 import type { AppEnv } from "../middleware";
 import { MAX_UPLOAD_BYTES, getAttachment, saveUpload } from "../services/attachments";
-import { addressesFor, enabledDomains } from "../services/directory";
+import { addressesFor, displayName, enabledDomains, setDisplayName } from "../services/directory";
 import {
   deleteMessage,
   deleteThread,
+  emptyBin,
   getMessage,
   getThread,
   listThreads,
   setThreadRead,
+  trashMessage,
+  trashThread,
   unreadByMailbox,
 } from "../services/messages";
 import { ComposeError, saveDraft, sendDraft } from "../services/outbound";
@@ -32,7 +35,7 @@ const compose = z.object({
 }) satisfies z.ZodType<ComposeInput, unknown>;
 
 const listQuery = z.object({
-  folder: z.enum(["inbox", "sent", "drafts"]).default("inbox"),
+  folder: z.enum(["inbox", "sent", "drafts", "bin"]).default("inbox"),
   mailbox: z.string().max(320).optional(),
   cursor: z.string().max(100).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -40,6 +43,9 @@ const listQuery = z.object({
 
 // Shown inline (in the email frame or the lightbox) only when it's an image
 // type a browser can't be talked into running script from.
+/** ?forever=1 skips the Bin. */
+const forever = z.object({ forever: z.literal("1").optional() });
+
 const INLINE_SAFE = /^image\/(png|jpe?g|gif|webp|avif|bmp)$/i;
 
 function composeError(err: unknown): string {
@@ -51,16 +57,27 @@ function composeError(err: unknown): string {
 export const mail = new Hono<AppEnv>()
   .get("/me", async (c) => {
     const { username, isAdmin } = c.get("user");
-    const [addresses, domains] = await Promise.all([addressesFor(c.env, username), enabledDomains(c.env)]);
-    return c.json<Me>({ username, isAdmin, addresses, domains, pushPublicKey: pushPublicKey(c.env) });
+    const [name, addresses, domains] = await Promise.all([
+      displayName(c.env, username),
+      addressesFor(c.env, username),
+      enabledDomains(c.env),
+    ]);
+    return c.json<Me>({ username, name: name || null, isAdmin, addresses, domains, pushPublicKey: pushPublicKey(c.env) });
+  })
+
+  // An empty name is kept as "" rather than NULL, so the SSO's doesn't come back on the next sign-in.
+  .patch("/me", zValidator("json", z.object({ name: z.string().trim().max(100) })), async (c) => {
+    const { name } = c.req.valid("json");
+    await setDisplayName(c.env, c.get("user").username, name);
+    return c.json({ name: name || null });
   })
 
   .get("/threads", zValidator("query", listQuery), async (c) =>
     c.json(await listThreads(c.env, c.get("user").username, c.req.valid("query"))),
   )
 
-  .get("/threads/:id", async (c) => {
-    const thread = await getThread(c.env, c.get("user").username, c.req.param("id"));
+  .get("/threads/:id", zValidator("query", z.object({ bin: z.literal("1").optional() })), async (c) => {
+    const thread = await getThread(c.env, c.get("user").username, c.req.param("id"), !!c.req.valid("query").bin);
     return thread ? c.json(thread) : c.json({ error: "Not found" }, 404);
   })
 
@@ -70,18 +87,36 @@ export const mail = new Hono<AppEnv>()
     return c.json({ unread: await unreadByMailbox(c.env, user) });
   })
 
-  .delete("/threads/:id", async (c) => {
-    const count = await deleteThread(c.env, c.get("user").username, c.req.param("id"));
+  /** Moves the thread to the Bin; with ?forever=1, deletes what of it is already there. */
+  .delete("/threads/:id", zValidator("query", forever), async (c) => {
+    const user = c.get("user").username;
+    const id = c.req.param("id");
+    const count = c.req.valid("query").forever ? await deleteThread(c.env, user, id) : await trashThread(c.env, user, id);
     return count ? c.json({ count }) : c.json({ error: "Not found" }, 404);
   })
+
+  .post("/threads/:id/restore", async (c) => {
+    const count = await trashThread(c.env, c.get("user").username, c.req.param("id"), false);
+    return count ? c.json({ count }) : c.json({ error: "Not found" }, 404);
+  })
+
+  .delete("/bin", async (c) => c.json({ count: await emptyBin(c.env, c.get("user").username) }))
 
   .get("/messages/:id", async (c) => {
     const message = await getMessage(c.env, c.get("user").username, c.req.param("id"));
     return message ? c.json(message) : c.json({ error: "Not found" }, 404);
   })
 
-  .delete("/messages/:id", async (c) => {
-    const count = await deleteMessage(c.env, c.get("user").username, c.req.param("id"));
+  /** Moves the message to the Bin; with ?forever=1, deletes it wherever it is. */
+  .delete("/messages/:id", zValidator("query", forever), async (c) => {
+    const user = c.get("user").username;
+    const id = c.req.param("id");
+    const count = c.req.valid("query").forever ? await deleteMessage(c.env, user, id) : await trashMessage(c.env, user, id);
+    return count ? c.json({ count }) : c.json({ error: "Not found" }, 404);
+  })
+
+  .post("/messages/:id/restore", async (c) => {
+    const count = await trashMessage(c.env, c.get("user").username, c.req.param("id"), false);
     return count ? c.json({ count }) : c.json({ error: "Not found" }, 404);
   })
 

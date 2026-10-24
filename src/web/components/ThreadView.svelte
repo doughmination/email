@@ -3,6 +3,7 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
+  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Forward from "@lucide/svelte/icons/forward";
@@ -14,27 +15,29 @@
   import type { Message, Thread } from "../../shared/types";
   import { SvelteSet } from "svelte/reactivity";
   import { api } from "../lib/api";
-  import { fmtSize, fmtTime } from "../lib/format";
+  import { bareAddress, displayName, fmtSize, fmtTime } from "../lib/format";
   import { router } from "../lib/router.svelte";
-  import { changed, composeDraft, composeForward, composeReply } from "../lib/state.svelte";
+  import { changed, composeDraft, composeForward, composeReply, composer } from "../lib/state.svelte";
   import EmailFrame from "./EmailFrame.svelte";
 
-  let { id }: { id: string } = $props();
+  /** `bin`: showing the part of the thread that's in the Bin. */
+  let { id, bin = false }: { id: string; bin?: boolean } = $props();
 
   let thread = $state<Thread | null>(null);
   let error = $state("");
-  /** Deletes need a second click; holds what's armed. */
+  /** Deleting forever needs a second click; holds what's armed. Moving to the Bin doesn't. */
   let confirming = $state<string | null>(null);
 
   $effect(() => {
     const threadId = id;
+    const inBin = bin;
     let stale = false;
     thread = null;
     error = "";
     confirming = null;
     opened.clear();
     api
-      .thread(threadId)
+      .thread(threadId, inBin)
       .then((t) => {
         if (stale) return;
         thread = t;
@@ -71,25 +74,61 @@
     router.thread(null);
   }
 
+  /** To the Bin, or out of the Bin for good. */
   async function removeThread() {
-    if (confirming !== "thread") return void (confirming = "thread");
-    await api.deleteThread(id);
+    if (bin && confirming !== "thread") return void (confirming = "thread");
+    await api.deleteThread(id, bin);
     changed();
     router.thread(null);
   }
 
-  async function removeMessage(m: Message) {
-    if (confirming !== m.id) return void (confirming = m.id);
-    await api.deleteMessage(m.id);
+  async function restoreThread() {
+    await api.restoreThread(id);
+    changed();
+    router.thread(null);
+  }
+
+  /** Drops a message from this view once it's moved or gone. */
+  function drop(m: Message) {
     changed();
     if (thread && thread.messages.length === 1) return router.thread(null);
     if (thread) thread.messages = thread.messages.filter((x) => x.id !== m.id);
     confirming = null;
   }
 
+  async function removeMessage(m: Message) {
+    if (bin && confirming !== m.id) return void (confirming = m.id);
+    await api.deleteMessage(m.id, bin);
+    drop(m);
+  }
+
+  async function restoreMessage(m: Message) {
+    await api.restoreMessage(m.id);
+    drop(m);
+  }
+
+  /** Delete/Backspace bins the thread, r replies, f forwards; never while typing or composing. */
+  function onkeydown(e: KeyboardEvent) {
+    if (composer.open || !thread || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if ((e.target as Element | null)?.closest?.("input, textarea, select, [contenteditable]")) return;
+    const key = e.key.toLowerCase();
+    if (key === "delete" || key === "backspace") {
+      e.preventDefault();
+      void removeThread();
+    } else if (!bin && last && (key === "r" || key === "f")) {
+      e.preventDefault();
+      (key === "r" ? composeReply : composeForward)(last);
+    }
+  }
+
+  /** "Ari Lane" for "Ari Lane <ari@x.y>", or the address when there's no name. */
+  const names = (list: string[]) => list.map(displayName).join(", ");
+
   const files = (m: Message) => m.attachments.filter((a) => !a.contentId || !m.html?.includes(a.contentId));
   const isImage = (type: string) => /^image\/(png|jpe?g|gif|webp|avif|bmp)$/i.test(type);
 </script>
+
+<svelte:window {onkeydown} />
 
 <article class="view">
   <button class="btn back" onclick={() => router.thread(null)}><ArrowLeft size={14} /> Back</button>
@@ -101,17 +140,22 @@
   {:else}
     <h2>{thread.subject || "(no subject)"}</h2>
 
-    {#if last}
+    {#if bin}
       <div class="actions">
-        <button class="btn accent" onclick={() => composeReply(last)}><Reply size={14} /> Reply</button>
-        <button class="btn" onclick={() => composeForward(last)}><Forward size={14} /> Forward</button>
+        <button class="btn accent" onclick={restoreThread}><ArchiveRestore size={14} /> Restore</button>
+        <button class="btn danger" title="Delete forever (Del)" onclick={removeThread}>
+          <Trash size={14} />
+          {confirming === "thread" ? "Press again to delete forever" : "Delete forever"}
+        </button>
+      </div>
+    {:else if last}
+      <div class="actions">
+        <button class="btn accent" title="Reply (R)" onclick={() => composeReply(last)}><Reply size={14} /> Reply</button>
+        <button class="btn" title="Forward (F)" onclick={() => composeForward(last)}><Forward size={14} /> Forward</button>
         {#if hasInbound}
           <button class="btn" onclick={markUnread}><MailOpen size={14} /> Mark unread</button>
         {/if}
-        <button class="btn danger" onclick={removeThread}>
-          <Trash size={14} />
-          {confirming === "thread" ? "Click again to delete" : "Delete conversation"}
-        </button>
+        <button class="btn danger" title="Move to Bin (Del)" onclick={removeThread}><Trash size={14} /> Delete</button>
       </div>
     {/if}
 
@@ -127,9 +171,12 @@
             title={m.id === newestId ? undefined : open ? "Collapse" : "Expand"}
           >
             <span class="badge {m.folder}">{m.folder === "inbox" ? "received" : m.folder === "sent" ? "sent" : "draft"}</span>
-            <strong>{m.from}</strong>
+            <strong title={m.from}>{displayName(m.from)}</strong>
             {#if open}
-              <span class="muted">to {m.to.join(", ")}{m.cc.length ? `, cc ${m.cc.join(", ")}` : ""}{m.bcc.length ? `, bcc ${m.bcc.join(", ")}` : ""}</span>
+              {#if displayName(m.from) !== bareAddress(m.from)}<span class="muted">&lt;{bareAddress(m.from)}&gt;</span>{/if}
+              <span class="muted" title={[...m.to, ...m.cc, ...m.bcc].join(", ")}>
+                to {names(m.to)}{m.cc.length ? `, cc ${names(m.cc)}` : ""}{m.bcc.length ? `, bcc ${names(m.bcc)}` : ""}
+              </span>
             {:else}
               <span class="muted snippet">{m.snippet}</span>
             {/if}
@@ -137,13 +184,18 @@
           <div class="right">
             <time class="muted">{open ? new Date(m.sentAt).toLocaleString() : fmtTime(m.sentAt)}</time>
             {#if open}
-              {#if m.folder === "drafts"}
+              {#if m.folder === "drafts" && !bin}
                 <button class="btn icon" title="Edit draft" onclick={() => composeDraft(m)}><Pencil size={14} /></button>
+              {/if}
+              {#if bin}
+                <button class="btn icon" title="Restore this message" onclick={() => restoreMessage(m)}>
+                  <ArchiveRestore size={14} />
+                </button>
               {/if}
               <button
                 class="btn icon"
                 class:danger={confirming === m.id}
-                title={confirming === m.id ? "Click again to delete" : "Delete this message"}
+                title={confirming === m.id ? "Click again to delete forever" : bin ? "Delete forever" : "Move to Bin"}
                 onclick={() => removeMessage(m)}
               >
                 <Trash size={14} />

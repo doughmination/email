@@ -1,8 +1,9 @@
-import type { AttachmentInfo, Folder, Message, Page, Thread, ThreadSummary } from "../../shared/types";
+import type { AttachmentInfo, Folder, ListFolder, Message, Page, Thread, ThreadSummary } from "../../shared/types";
 import { baseSubject, isReplySubject } from "../lib/address";
 import { purgeObjects } from "./attachments";
 
 const FALLBACK_THREAD_WINDOW_MS = 1000 * 60 * 60 * 24 * 30;
+export const BIN_RETENTION_MS = 1000 * 60 * 60 * 24 * 30;
 
 type MessageRow = {
   id: string;
@@ -24,6 +25,7 @@ type MessageRow = {
   text: string | null;
   sent_at: number;
   read: number;
+  trashed_at: number | null;
 };
 
 type AttachmentRow = {
@@ -35,7 +37,7 @@ type AttachmentRow = {
   content_id: string | null;
 };
 
-export type NewMessage = Omit<MessageRow, "read" | "snippet" | "thread_id" | "bcc_addrs"> & {
+export type NewMessage = Omit<MessageRow, "read" | "snippet" | "thread_id" | "bcc_addrs" | "trashed_at"> & {
   read: boolean;
   /** Defaults to none; only outgoing mail has a Bcc. */
   bcc_addrs?: string;
@@ -189,7 +191,7 @@ export async function getMessage(env: Env, owner: string, id: string): Promise<M
 }
 
 export interface ListFilter {
-  folder: Folder;
+  folder: ListFolder;
   /** One exact address, or "@domain" for every address on a domain. */
   mailbox?: string;
   cursor?: string;
@@ -197,8 +199,14 @@ export interface ListFilter {
 }
 
 export async function listThreads(env: Env, owner: string, f: ListFilter): Promise<Page<ThreadSummary>> {
-  const where = ["owner = ?", "folder = ?"];
-  const params: (string | number)[] = [owner, f.folder];
+  const where = ["owner = ?"];
+  const params: (string | number)[] = [owner];
+  if (f.folder === "bin") {
+    where.push("trashed_at IS NOT NULL");
+  } else {
+    where.push("folder = ?", "trashed_at IS NULL");
+    params.push(f.folder);
+  }
   if (f.mailbox?.startsWith("@")) {
     where.push("substr(mailbox, instr(mailbox, '@')) = ?");
     params.push(f.mailbox.toLowerCase());
@@ -265,12 +273,17 @@ export async function listThreads(env: Env, owner: string, f: ListFilter): Promi
   };
 }
 
-export async function getThread(env: Env, owner: string, threadId: string): Promise<Thread | null> {
+/** The thread's messages outside the Bin, or with `bin`, only those in it. */
+export async function getThread(env: Env, owner: string, threadId: string, bin = false): Promise<Thread | null> {
+  const trashed = bin ? "trashed_at IS NOT NULL" : "trashed_at IS NULL";
   const [messages, attachments] = await env.DB.batch([
-    env.DB.prepare("SELECT * FROM messages WHERE thread_id = ? AND owner = ? ORDER BY sent_at").bind(threadId, owner),
+    env.DB.prepare(`SELECT * FROM messages WHERE thread_id = ? AND owner = ? AND ${trashed} ORDER BY sent_at`).bind(
+      threadId,
+      owner,
+    ),
     env.DB.prepare(
       "SELECT a.id, a.message_id, a.filename, a.content_type, a.size, a.content_id FROM attachments a " +
-        "JOIN messages m ON a.message_id = m.id WHERE m.thread_id = ? AND m.owner = ?",
+        `JOIN messages m ON a.message_id = m.id WHERE m.thread_id = ? AND m.owner = ? AND m.${trashed}`,
     ).bind(threadId, owner),
   ]);
   const rows = (messages?.results ?? []) as MessageRow[];
@@ -295,7 +308,8 @@ export async function setThreadRead(env: Env, owner: string, threadId: string, r
 /** Unread inbox mail, per address the owner received it on. */
 export async function unreadByMailbox(env: Env, owner: string): Promise<Record<string, number>> {
   const { results } = await env.DB.prepare(
-    "SELECT mailbox, COUNT(*) AS n FROM messages WHERE owner = ? AND folder = 'inbox' AND read = 0 GROUP BY mailbox",
+    "SELECT mailbox, COUNT(*) AS n FROM messages WHERE owner = ? AND folder = 'inbox' AND read = 0 " +
+      "AND trashed_at IS NULL GROUP BY mailbox",
   )
     .bind(owner)
     .all<{ mailbox: string; n: number }>();
@@ -306,7 +320,7 @@ export async function unreadByMailbox(env: Env, owner: string): Promise<Record<s
  * Deletes messages (and their attachment rows, by cascade), drops threads
  * left empty, then removes R2 objects nothing references any more.
  */
-async function deleteWhere(env: Env, where: string, params: string[]): Promise<number> {
+async function deleteWhere(env: Env, where: string, params: (string | number)[]): Promise<number> {
   const { results: keys } = await env.DB.prepare(
     `SELECT DISTINCT a.r2_key FROM attachments a JOIN messages m ON a.message_id = m.id WHERE ${where}`,
   )
@@ -329,12 +343,41 @@ async function deleteWhere(env: Env, where: string, params: string[]): Promise<n
   return deleted.length;
 }
 
+/** Gone for good, whether or not it was in the Bin. Discarding a draft skips the Bin. */
 export function deleteMessage(env: Env, owner: string, id: string): Promise<number> {
   return deleteWhere(env, "m.id = ? AND m.owner = ?", [id, owner]);
 }
 
+/** Deletes for good the part of a thread that's in the Bin; anything newer stays. */
 export function deleteThread(env: Env, owner: string, threadId: string): Promise<number> {
-  return deleteWhere(env, "m.thread_id = ? AND m.owner = ?", [threadId, owner]);
+  return deleteWhere(env, "m.thread_id = ? AND m.owner = ? AND m.trashed_at IS NOT NULL", [threadId, owner]);
+}
+
+export function emptyBin(env: Env, owner: string): Promise<number> {
+  return deleteWhere(env, "m.owner = ? AND m.trashed_at IS NOT NULL", [owner]);
+}
+
+/** The daily cron: anything binned more than BIN_RETENTION_MS ago. */
+export function purgeBin(env: Env, now = Date.now()): Promise<number> {
+  return deleteWhere(env, "m.trashed_at IS NOT NULL AND m.trashed_at < ?", [now - BIN_RETENTION_MS]);
+}
+
+/** Moves messages to the Bin (trash) or back out of it, returning how many moved. */
+async function setTrashed(env: Env, where: string, params: string[], trash: boolean): Promise<number> {
+  const res = await env.DB.prepare(
+    `UPDATE messages SET trashed_at = ? WHERE ${where} AND trashed_at IS ${trash ? "NULL" : "NOT NULL"}`,
+  )
+    .bind(trash ? Date.now() : null, ...params)
+    .run();
+  return res.meta.changes;
+}
+
+export function trashMessage(env: Env, owner: string, id: string, trash = true): Promise<number> {
+  return setTrashed(env, "id = ? AND owner = ?", [id, owner], trash);
+}
+
+export function trashThread(env: Env, owner: string, threadId: string, trash = true): Promise<number> {
+  return setTrashed(env, "thread_id = ? AND owner = ?", [threadId, owner], trash);
 }
 
 export function deleteAllFor(env: Env, owner: string): Promise<number> {

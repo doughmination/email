@@ -11,15 +11,17 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import Shield from "@lucide/svelte/icons/shield";
   import SquarePen from "@lucide/svelte/icons/square-pen";
-  import type { Folder } from "../../shared/types";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import type { ListFolder } from "../../shared/types";
   import { api } from "../lib/api";
   import { router } from "../lib/router.svelte";
   import { composeNew, session } from "../lib/state.svelte";
 
-  const folders: { folder: Folder; label: string; icon: typeof InboxIcon }[] = [
+  const folders: { folder: ListFolder; label: string; icon: typeof InboxIcon }[] = [
     { folder: "inbox", label: "Inbox", icon: InboxIcon },
     { folder: "sent", label: "Sent", icon: Send },
     { folder: "drafts", label: "Drafts", icon: FileText },
+    { folder: "bin", label: "Bin", icon: Trash2 },
   ];
 
   const route = $derived(router.route);
@@ -41,7 +43,7 @@
       .filter(([addr]) => addr.endsWith(`@${domain}`))
       .reduce((n, [, c]) => n + c, 0);
 
-  function folderHref(folder: Folder, mailbox: string | null = router.mailbox) {
+  function folderHref(folder: ListFolder, mailbox: string | null = router.mailbox) {
     return `/${folder}${mailbox ? `?in=${encodeURIComponent(mailbox)}` : ""}`;
   }
 

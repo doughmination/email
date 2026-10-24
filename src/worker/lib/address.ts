@@ -12,6 +12,12 @@ export function splitAddress(input: string): { local: string; domain: string } |
   return { local: bare.slice(0, at), domain: bare.slice(at + 1) };
 }
 
+/** A From header with a display name: "Clove Twilight" <clove@x.y>. Bare address when there's no name. */
+export function formatAddress(name: string | null | undefined, address: string): string {
+  const clean = (name ?? "").replace(/["\\<>]/g, "").replace(/\s+/g, " ").trim();
+  return clean ? `"${clean}" <${address}>` : address;
+}
+
 export function isAddress(input: string): boolean {
   return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(bareAddress(input));
 }

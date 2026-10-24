@@ -33,7 +33,7 @@
     {#if route.name === "folder"}
       <ThreadList folder={route.folder} selected={route.threadId} />
       {#if route.threadId}
-        {#key route.threadId}<ThreadView id={route.threadId} />{/key}
+        {#key route.threadId + route.folder}<ThreadView id={route.threadId} bin={route.folder === "bin"} />{/key}
       {:else}
         <p class="muted empty">Select a conversation to read it.</p>
       {/if}

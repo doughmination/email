@@ -2,8 +2,9 @@ import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Page, Thread, ThreadSummary } from "../src/shared/types";
 import { setMessageAttachments } from "../src/worker/services/attachments";
-import { routeRecipients } from "../src/worker/services/directory";
-import { insertMessage, resolveThread } from "../src/worker/services/messages";
+import { formatAddress } from "../src/worker/lib/address";
+import { displayName, recordLogin, routeRecipients } from "../src/worker/services/directory";
+import { BIN_RETENTION_MS, insertMessage, purgeBin, resolveThread } from "../src/worker/services/messages";
 
 const ORIGIN = "https://mail.test";
 
@@ -133,6 +134,82 @@ describe("delivery", () => {
     const a = await deliver("clove", "Your weekly digest");
     const b = await deliver("clove", "Your weekly digest");
     expect(a.threadId).not.toBe(b.threadId);
+  });
+});
+
+describe("bin", () => {
+  const list = async (folder: string) =>
+    ((await (await call(clove, `/api/threads?folder=${folder}`)).json()) as Page<ThreadSummary>).items.map((t) => t.id);
+
+  it("moves a deleted thread to the Bin and back", async () => {
+    const { threadId } = await deliver("clove", "Bin me");
+    expect((await call(clove, `/api/threads/${threadId}`, { method: "DELETE" })).status).toBe(200);
+    expect(await list("inbox")).not.toContain(threadId);
+    expect(await list("bin")).toContain(threadId);
+    expect((await call(clove, `/api/threads/${threadId}`)).status).toBe(404);
+    expect((await call(clove, `/api/threads/${threadId}?bin=1`)).status).toBe(200);
+
+    expect((await call(clove, `/api/threads/${threadId}/restore`, { method: "POST" })).status).toBe(200);
+    expect(await list("inbox")).toContain(threadId);
+    expect(await list("bin")).not.toContain(threadId);
+  });
+
+  it("doesn't count binned mail as unread", async () => {
+    const { threadId } = await deliver("clove", "Unread then binned");
+    const unread = async () =>
+      ((await (await call(clove, "/api/unread")).json()) as { unread: Record<string, number> }).unread["clove@doughmination.gay"] ?? 0;
+    const before = await unread();
+    await call(clove, `/api/threads/${threadId}`, { method: "DELETE" });
+    expect(await unread()).toBe(before - 1);
+  });
+
+  it("deletes forever only what's in the Bin", async () => {
+    const first = await deliver("clove", "Forever", { messageId: "<forever@example.com>" });
+    await call(clove, `/api/threads/${first.threadId}`, { method: "DELETE" });
+    // A reply arrives after the thread was binned; it stays in the inbox.
+    const reply = await deliver("clove", "Re: Forever", { inReplyTo: "<forever@example.com>" });
+    expect(reply.threadId).toBe(first.threadId);
+
+    const res = await call(clove, `/api/threads/${first.threadId}?forever=1`, { method: "DELETE" });
+    expect(await res.json()).toEqual({ count: 1 });
+    const thread = (await (await call(clove, `/api/threads/${first.threadId}`)).json()) as Thread;
+    expect(thread.messages.map((m) => m.id)).toEqual([reply.id]);
+  });
+
+  it("purges what's been in the Bin over 30 days", async () => {
+    const old = await deliver("clove", "Old bin");
+    const recent = await deliver("clove", "Recent bin");
+    await env.DB.prepare("UPDATE messages SET trashed_at = ? WHERE id = ?").bind(Date.now() - BIN_RETENTION_MS - 1, old.id).run();
+    await env.DB.prepare("UPDATE messages SET trashed_at = ? WHERE id = ?").bind(Date.now(), recent.id).run();
+    await purgeBin(env);
+    expect(await list("bin")).not.toContain(old.threadId);
+    expect(await list("bin")).toContain(recent.threadId);
+  });
+});
+
+describe("display names", () => {
+  it("keeps a name set in Settings over the SSO's", async () => {
+    await recordLogin(env, { username: "noor", sub: "sub-noor", name: "Noor From SSO", refreshToken: null, idToken: "x" });
+    expect(await displayName(env, "noor")).toBe("Noor From SSO");
+    await env.DB.prepare("UPDATE users SET display_name = 'Noor' WHERE username = 'noor'").run();
+    await recordLogin(env, { username: "noor", sub: "sub-noor", name: "Noor From SSO", refreshToken: null, idToken: "x" });
+    expect(await displayName(env, "noor")).toBe("Noor");
+  });
+
+  it("lets a user change their name", async () => {
+    const res = await call(clove, "/api/me", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "  Clove Twilight " }),
+    });
+    expect(await res.json()).toEqual({ name: "Clove Twilight" });
+    expect(((await (await call(clove, "/api/me")).json()) as { name: string }).name).toBe("Clove Twilight");
+  });
+
+  it("formats a From header without letting the name break out", () => {
+    expect(formatAddress("Clove Twilight", "clove@x.y")).toBe('"Clove Twilight" <clove@x.y>');
+    expect(formatAddress('Evil" <a@b.c>\r\nBcc: x', "clove@x.y")).toBe('"Evil a@b.c Bcc: x" <clove@x.y>');
+    expect(formatAddress("", "clove@x.y")).toBe("clove@x.y");
   });
 });
 

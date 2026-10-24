@@ -2,8 +2,13 @@
 
 export type Folder = "inbox" | "sent" | "drafts";
 
+/** What the thread list can show: a folder, or the Bin (anything deleted, from any folder). */
+export type ListFolder = Folder | "bin";
+
 export interface Me {
   username: string;
+  /** Display name put on outgoing mail; null sends from the bare address. */
+  name: string | null;
   isAdmin: boolean;
   /** Every address this user can send from, across all enabled domains. */
   addresses: string[];
@@ -101,6 +106,7 @@ export interface AliasInfo {
 
 export interface UserInfo {
   username: string;
+  name: string | null;
   isAdmin: boolean;
   createdAt: number;
   lastLoginAt: number;

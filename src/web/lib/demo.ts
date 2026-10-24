@@ -12,7 +12,7 @@ import type {
   AttachmentInfo,
   ComposeInput,
   DomainInfo,
-  Folder,
+  ListFolder,
   Me,
   Message,
   Page,
@@ -26,14 +26,22 @@ import type { Api } from "./api";
 import { changed } from "./state.svelte";
 
 const ME = "demo";
+/** Who the demo account is, until they change it in Settings. */
+const ME_NAME = "Jamie Rivera";
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-type Stored = Message;
+/** trashedAt is set while it's in the Bin. */
+type Stored = Message & { trashedAt?: number | null };
 
 function bare(addr: string): string {
   return (addr.match(/<([^>]*)>/)?.[1] ?? addr).trim().toLowerCase();
+}
+
+function withName(name: string | null, addr: string): string {
+  const clean = (name ?? "").replace(/["<>\r\n]/g, "").trim();
+  return clean ? `"${clean}" <${addr}>` : addr;
 }
 
 function snippetOf(text: string | null, html: string | null): string {
@@ -76,6 +84,8 @@ const WELCOME_HTML = `
     <li><strong>Send yourself a message</strong>: pick any of your addresses as the recipient and it lands in your inbox.</li>
     <li><strong>Send one to anyone else</strong>: it goes to Sent, and a pretend reply comes back a few seconds later.</li>
     <li><strong>Use Cc and Bcc</strong>. Bcc'd addresses only show on your own copy in Sent.</li>
+    <li><strong>Type a comma</strong> after an address in To, Cc or Bcc and it turns into a pill.</li>
+    <li><strong>Use the keyboard</strong>: <kbd>R</kbd> replies, <kbd>F</kbd> forwards and <kbd>Delete</kbd> moves a conversation to the Bin, where you can restore it.</li>
     <li><strong>Switch mailboxes</strong> in the sidebar to see one address or one whole domain at a time.</li>
     <li><strong>Open Admin</strong> to switch domains off, set a catch-all, or hand yourself a new alias.</li>
   </ul>
@@ -129,10 +139,11 @@ export function createDemoApi(): Api {
     { localPart: "hello", domain: "example.com", username: ME },
     { localPart: "support", domain: "", username: "ari" },
   ];
-  const users = [
-    { username: ME, isAdmin: true, createdAt: Date.now() - 90 * DAY, lastLoginAt: Date.now() },
-    { username: "ari", isAdmin: false, createdAt: Date.now() - 60 * DAY, lastLoginAt: Date.now() - 2 * DAY },
+  const users: { username: string; name: string | null; isAdmin: boolean; createdAt: number; lastLoginAt: number }[] = [
+    { username: ME, name: ME_NAME, isAdmin: true, createdAt: Date.now() - 90 * DAY, lastLoginAt: Date.now() },
+    { username: "ari", name: "Ari Lane", isAdmin: false, createdAt: Date.now() - 60 * DAY, lastLoginAt: Date.now() - 2 * DAY },
   ];
+  const myName = () => users.find((u) => u.username === ME)!.name;
 
   /** Blob or data: URLs for attachment bytes, by attachment id. */
   const files = new Map<string, string>();
@@ -215,7 +226,7 @@ export function createDemoApi(): Api {
     threadId: "t-ari",
     folder: "sent",
     mailbox: "demo@example.com",
-    from: "demo@example.com",
+    from: withName(ME_NAME, "demo@example.com"),
     to: ["Ari Lane <ari@friends.example>"],
     subject: "Re: Weekend trip?",
     html: null,
@@ -268,10 +279,10 @@ export function createDemoApi(): Api {
     threadId: "t-party",
     folder: "sent",
     mailbox: "demo@example.net",
-    from: "demo@example.net",
-    to: ["friends@party.example"],
+    from: withName(ME_NAME, "demo@example.net"),
+    to: ["Priya Shah <priya@party.example>", "Tom Becker <tom@party.example>"],
     cc: ["Ari Lane <ari@friends.example>"],
-    bcc: ["surprise@party.example"],
+    bcc: ["Mo Haddad <mo@party.example>"],
     subject: "Saturday 🎉",
     html: null,
     text: "Party at mine on Saturday from 7. Bring snacks!\n\n(The Bcc above is only on this copy. Nobody else sees it.)",
@@ -284,7 +295,7 @@ export function createDemoApi(): Api {
     folder: "drafts",
     mailbox: "demo@example.com",
     from: "demo@example.com",
-    to: ["landlord@flat.example"],
+    to: ["Dana Whitfield <dana@flat.example>"],
     subject: "Boiler",
     html: null,
     text: "Hi,\n\nThe boiler is making the noise again. Could someone",
@@ -307,11 +318,11 @@ export function createDemoApi(): Api {
 
   function unread(): Record<string, number> {
     const out: Record<string, number> = {};
-    for (const m of messages) if (m.folder === "inbox" && !m.read) out[m.mailbox] = (out[m.mailbox] ?? 0) + 1;
+    for (const m of messages) if (m.folder === "inbox" && !m.read && !m.trashedAt) out[m.mailbox] = (out[m.mailbox] ?? 0) + 1;
     return out;
   }
 
-  function remove(pred: (m: Stored) => boolean): number {
+  function remove(pred: (m: Stored) => boolean, mustExist = true): number {
     let n = 0;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (pred(messages[i]!)) {
@@ -319,8 +330,16 @@ export function createDemoApi(): Api {
         n++;
       }
     }
-    if (!n) throw new Error("Not found");
+    if (!n && mustExist) throw new Error("Not found");
     return n;
+  }
+
+  /** Into the Bin, or with trash false, back out of it. */
+  function setTrashed(pred: (m: Stored) => boolean, trash: boolean): number {
+    const hits = messages.filter((m) => pred(m) && !m.trashedAt === trash);
+    if (!hits.length) throw new Error("Not found");
+    for (const m of hits) m.trashedAt = trash ? Date.now() : null;
+    return hits.length;
   }
 
   function attachmentsFor(ids: string[], keep: AttachmentInfo[] = []): AttachmentInfo[] {
@@ -351,7 +370,7 @@ export function createDemoApi(): Api {
     };
 
     if (draftId) {
-      const draft = messages.find((m) => m.id === draftId && m.folder === "drafts");
+      const draft = messages.find((m) => m.id === draftId && m.folder === "drafts" && !m.trashedAt);
       if (!draft) throw new Error("That draft doesn't exist any more.");
       Object.assign(draft, fields, { attachments: attachmentsFor(input.attachmentIds, draft.attachments) });
       return draft;
@@ -398,10 +417,10 @@ export function createDemoApi(): Api {
     }, 5000);
   }
 
-  function summaries(folder: Folder, mailbox: string | null): ThreadSummary[] {
+  function summaries(folder: ListFolder, mailbox: string | null): ThreadSummary[] {
     const inFolder = messages.filter(
       (m) =>
-        m.folder === folder &&
+        (folder === "bin" ? !!m.trashedAt : m.folder === folder && !m.trashedAt) &&
         (!mailbox || (mailbox.startsWith("@") ? m.mailbox.endsWith(mailbox.toLowerCase()) : m.mailbox === mailbox.toLowerCase())),
     );
     const byThread = new Map<string, Stored[]>();
@@ -440,6 +459,7 @@ export function createDemoApi(): Api {
     me: () =>
       later<Me>(() => ({
         username: ME,
+        name: myName(),
         isAdmin: users.find((u) => u.username === ME)!.isAdmin,
         addresses: addressesOf(ME),
         domains: domains.filter((d) => d.enabled).map((d) => d.name),
@@ -447,12 +467,18 @@ export function createDemoApi(): Api {
       })),
     // Reloading the page starts the demo over.
     logout: () => later(() => ({ endSession: "/demo" as string | null })),
+    setName: (name) =>
+      later(() => {
+        const me = users.find((u) => u.username === ME)!;
+        me.name = name.trim().slice(0, 100) || null;
+        return { name: me.name };
+      }),
 
     threads: (folder, mailbox) =>
       later<Page<ThreadSummary>>(() => ({ items: summaries(folder, mailbox), nextCursor: null })),
-    thread: (id) =>
+    thread: (id, bin) =>
       later<Thread>(() => {
-        const list = messages.filter((m) => m.threadId === id).sort((a, b) => a.sentAt - b.sentAt);
+        const list = messages.filter((m) => m.threadId === id && !!m.trashedAt === !!bin).sort((a, b) => a.sentAt - b.sentAt);
         if (!list.length) throw new Error("Not found");
         return { id, subject: list.at(-1)!.subject, messages: list };
       }),
@@ -461,14 +487,23 @@ export function createDemoApi(): Api {
         for (const m of messages) if (m.threadId === id && m.folder === "inbox") m.read = read;
         return { unread: unread() };
       }),
-    deleteThread: (id) => later(() => ({ count: remove((m) => m.threadId === id) })),
+    deleteThread: (id, forever) =>
+      later(() => ({
+        count: forever
+          ? remove((m) => m.threadId === id && !!m.trashedAt)
+          : setTrashed((m) => m.threadId === id, true),
+      })),
+    restoreThread: (id) => later(() => ({ count: setTrashed((m) => m.threadId === id, false) })),
+    emptyBin: () => later(() => ({ count: remove((m) => !!m.trashedAt, false) })),
     message: (id) =>
       later<Message>(() => {
         const m = messages.find((m) => m.id === id);
         if (!m) throw new Error("Not found");
         return m;
       }),
-    deleteMessage: (id) => later(() => ({ count: remove((m) => m.id === id) })),
+    deleteMessage: (id, forever) =>
+      later(() => ({ count: forever ? remove((m) => m.id === id) : setTrashed((m) => m.id === id, true) })),
+    restoreMessage: (id) => later(() => ({ count: setTrashed((m) => m.id === id, false) })),
     unread: () => later(() => ({ unread: unread() })),
     attachmentUrl: (id) => files.get(id) ?? "data:text/plain,This%20attachment%20is%20gone.",
 
@@ -494,6 +529,7 @@ export function createDemoApi(): Api {
         if (!draft.to.length) throw new Error("Add at least one recipient.");
         if (!draft.subject.trim()) throw new Error("Add a subject.");
         draft.folder = "sent";
+        draft.from = withName(myName(), draft.from);
         draft.sentAt = Date.now();
         deliver(draft);
         return { id: draft.id, threadId: draft.threadId };
