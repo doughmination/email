@@ -11,6 +11,8 @@ import type {
   ThreadSummary,
   UserInfo,
 } from "../../shared/types";
+import { createDemoApi } from "./demo";
+import { isDemo } from "./router.svelte";
 
 export class ApiError extends Error {
   constructor(
@@ -49,7 +51,7 @@ const del = <T>(path: string) => request<T>("DELETE", path);
 
 type Unread = { unread: Record<string, number> };
 
-export const api = {
+const server = {
   me: () => get<Me>("/api/me"),
   logout: () => post<{ endSession: string | null }>("/auth/logout"),
 
@@ -65,6 +67,7 @@ export const api = {
   message: (id: string) => get<Message>(`/api/messages/${id}`),
   deleteMessage: (id: string) => del<{ count: number }>(`/api/messages/${id}`),
   unread: () => get<Unread>("/api/unread"),
+  attachmentUrl: (id: string, inline = false) => `/api/attachments/${id}${inline ? "?inline=1" : ""}`,
 
   upload(file: File) {
     const form = new FormData();
@@ -96,3 +99,8 @@ export const api = {
       del<{ deletedMail: number }>(`/api/admin/users/${encodeURIComponent(username)}`),
   },
 };
+
+export type Api = typeof server;
+
+/** Under /demo the server is swapped for an in-memory fake; see demo.ts. */
+export const api: Api = isDemo ? createDemoApi() : server;

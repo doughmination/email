@@ -24,6 +24,7 @@ const compose = z.object({
   from: z.string().max(320),
   to: z.array(address).max(50),
   cc: z.array(address).max(50).default([]),
+  bcc: z.array(address).max(50).default([]),
   subject: z.string().max(998),
   text: z.string().max(1_000_000),
   attachmentIds: z.array(z.uuid()).max(50).default([]),

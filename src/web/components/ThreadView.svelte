@@ -129,7 +129,7 @@
             <span class="badge {m.folder}">{m.folder === "inbox" ? "received" : m.folder === "sent" ? "sent" : "draft"}</span>
             <strong>{m.from}</strong>
             {#if open}
-              <span class="muted">to {m.to.join(", ")}{m.cc.length ? `, cc ${m.cc.join(", ")}` : ""}</span>
+              <span class="muted">to {m.to.join(", ")}{m.cc.length ? `, cc ${m.cc.join(", ")}` : ""}{m.bcc.length ? `, bcc ${m.bcc.join(", ")}` : ""}</span>
             {:else}
               <span class="muted snippet">{m.snippet}</span>
             {/if}
@@ -169,11 +169,11 @@
             {#each files(m) as a (a.id)}
               <li>
                 {#if isImage(a.contentType)}
-                  <a href="/api/attachments/{a.id}?inline=1" target="_blank" rel="noopener">
-                    <img src="/api/attachments/{a.id}?inline=1" alt={a.filename} />
+                  <a href={api.attachmentUrl(a.id, true)} target="_blank" rel="noopener">
+                    <img src={api.attachmentUrl(a.id, true)} alt={a.filename} />
                   </a>
                 {/if}
-                <a href="/api/attachments/{a.id}" download={a.filename}><Paperclip size={12} /> {a.filename}</a>
+                <a href={api.attachmentUrl(a.id)} download={a.filename}><Paperclip size={12} /> {a.filename}</a>
                 <span class="muted">({fmtSize(a.size)})</span>
               </li>
             {/each}

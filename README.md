@@ -67,6 +67,16 @@ Then:
    Resend. The list re-syncs on those webhooks, daily, and whenever Admin →
    Domains is opened. That page is where you switch one off or pick a catch-all.
 
+## Demo
+
+`/demo` (e.g. https://mail.doughmination.gay/demo) is the same app with made-up
+mail and no sign-in. Under that path the API is swapped for an in-memory fake
+(`src/web/lib/demo.ts`), so nothing touches the Worker, D1, R2 or Resend, and no
+real email comes in or goes out. Sending moves a message to Sent, mail to one of
+the demo's own addresses lands in its inbox, anyone else gets a pretend reply a
+few seconds later, and reloading starts over. Locally it's at
+http://localhost:5173/demo.
+
 ## Scripts
 
 | | |

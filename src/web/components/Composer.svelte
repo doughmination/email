@@ -31,6 +31,7 @@
       from: form.from,
       to: splitList(form.to),
       cc: splitList(form.cc),
+      bcc: splitList(form.bcc),
       subject: form.subject,
       text: form.text,
       attachmentIds: form.attachments.map((a) => a.id),
@@ -117,6 +118,7 @@
     {/if}
     <label class="field">To <input bind:value={form.to} placeholder="someone@example.com, …" required /></label>
     <label class="field">Cc <input bind:value={form.cc} /></label>
+    <label class="field">Bcc <input bind:value={form.bcc} /></label>
     <label class="field">Subject <input bind:value={form.subject} required /></label>
     <label class="field grow">Message <textarea bind:value={form.text} rows="12"></textarea></label>
 

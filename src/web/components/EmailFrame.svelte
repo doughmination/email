@@ -21,6 +21,7 @@
 <script lang="ts">
   import ImageIcon from "@lucide/svelte/icons/image";
   import type { AttachmentInfo } from "../../shared/types";
+  import { api } from "../lib/api";
 
   let { html, attachments }: { html: string; attachments: AttachmentInfo[] } = $props();
 
@@ -39,7 +40,7 @@
     );
     return html.replace(/cid:([^"'\s>)]+)/gi, (whole, raw: string) => {
       const id = byCid.get(raw.replace(/^<|>$/g, "").toLowerCase());
-      return id ? `/api/attachments/${id}?inline=1` : whole;
+      return id ? api.attachmentUrl(id, true) : whole;
     });
   });
 

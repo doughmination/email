@@ -17,6 +17,7 @@ type MessageRow = {
   from_addr: string;
   to_addrs: string;
   cc_addrs: string;
+  bcc_addrs: string;
   subject: string;
   snippet: string;
   html: string | null;
@@ -34,7 +35,11 @@ type AttachmentRow = {
   content_id: string | null;
 };
 
-export type NewMessage = Omit<MessageRow, "read" | "snippet" | "thread_id"> & { read: boolean };
+export type NewMessage = Omit<MessageRow, "read" | "snippet" | "thread_id" | "bcc_addrs"> & {
+  read: boolean;
+  /** Defaults to none; only outgoing mail has a Bcc. */
+  bcc_addrs?: string;
+};
 
 function toAttachment(row: AttachmentRow): AttachmentInfo {
   return {
@@ -55,6 +60,7 @@ function toMessage(row: MessageRow, attachments: AttachmentInfo[]): Message {
     from: row.from_addr,
     to: JSON.parse(row.to_addrs) as string[],
     cc: JSON.parse(row.cc_addrs) as string[],
+    bcc: JSON.parse(row.bcc_addrs) as string[],
     subject: row.subject,
     snippet: row.snippet,
     html: row.html,
@@ -141,8 +147,8 @@ export async function insertMessage(env: Env, threadId: string, m: NewMessage): 
 export function insertMessageStatement(env: Env, threadId: string, m: NewMessage): D1PreparedStatement {
   return env.DB.prepare(
     "INSERT INTO messages (id, owner, thread_id, folder, mailbox, resend_id, message_id, in_reply_to, refs, " +
-      "from_addr, to_addrs, cc_addrs, subject, snippet, html, text, sent_at, read) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (resend_id, owner) DO NOTHING",
+      "from_addr, to_addrs, cc_addrs, bcc_addrs, subject, snippet, html, text, sent_at, read) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (resend_id, owner) DO NOTHING",
   )
     .bind(
       m.id,
@@ -157,6 +163,7 @@ export function insertMessageStatement(env: Env, threadId: string, m: NewMessage
       m.from_addr,
       m.to_addrs,
       m.cc_addrs,
+      m.bcc_addrs ?? "[]",
       m.subject,
       snippetOf(m.text, m.html),
       m.html,

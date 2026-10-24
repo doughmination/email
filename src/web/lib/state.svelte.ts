@@ -28,6 +28,7 @@ export interface ComposeInit {
   from: string;
   to: string;
   cc: string;
+  bcc: string;
   subject: string;
   text: string;
   attachments: AttachmentInfo[];
@@ -63,6 +64,7 @@ export function composeNew() {
     from: defaultFrom(),
     to: "",
     cc: "",
+    bcc: "",
     subject: "",
     text: "",
     attachments: [],
@@ -78,6 +80,7 @@ export function composeReply(m: Message) {
     from: ourAddress(m),
     to: outbound ? m.to.join(", ") : m.from,
     cc: "",
+    bcc: "",
     subject: prefixed("Re", m.subject),
     text: quote(m),
     attachments: [],
@@ -92,6 +95,7 @@ export function composeForward(m: Message) {
     from: ourAddress(m),
     to: "",
     cc: "",
+    bcc: "",
     subject: prefixed("Fwd", m.subject),
     text: `\n\n---------- Forwarded message ----------\nFrom: ${m.from}\nTo: ${m.to.join(", ")}\nSubject: ${m.subject}\n\n${m.text ?? ""}`,
     attachments: m.attachments.filter((a) => !a.contentId),
@@ -106,6 +110,7 @@ export function composeDraft(m: Message) {
     from: m.from,
     to: m.to.join(", "),
     cc: m.cc.join(", "),
+    bcc: m.bcc.join(", "),
     subject: m.subject,
     text: m.text ?? "",
     attachments: m.attachments,

@@ -34,7 +34,7 @@ export async function saveDraft(env: Env, user: string, input: ComposeInput, dra
 
   if (draftId) {
     const res = await env.DB.prepare(
-      "UPDATE messages SET mailbox = ?, from_addr = ?, to_addrs = ?, cc_addrs = ?, subject = ?, text = ?, " +
+      "UPDATE messages SET mailbox = ?, from_addr = ?, to_addrs = ?, cc_addrs = ?, bcc_addrs = ?, subject = ?, text = ?, " +
         "html = ?, snippet = ?, sent_at = ? WHERE id = ? AND owner = ? AND folder = 'drafts'",
     )
       .bind(
@@ -42,6 +42,7 @@ export async function saveDraft(env: Env, user: string, input: ComposeInput, dra
         from,
         JSON.stringify(input.to),
         JSON.stringify(input.cc),
+        JSON.stringify(input.bcc),
         input.subject,
         input.text,
         html,
@@ -84,6 +85,7 @@ export async function saveDraft(env: Env, user: string, input: ComposeInput, dra
     from_addr: from,
     to_addrs: JSON.stringify(input.to),
     cc_addrs: JSON.stringify(input.cc),
+    bcc_addrs: JSON.stringify(input.bcc),
     subject: input.subject,
     html,
     text: input.text,
@@ -101,6 +103,7 @@ export async function sendDraft(env: Env, user: string, draftId: string): Promis
 
   const to = JSON.parse(draft.to_addrs) as string[];
   const cc = JSON.parse(draft.cc_addrs) as string[];
+  const bcc = JSON.parse(draft.bcc_addrs) as string[];
   if (!to.length) throw new ComposeError("Add at least one recipient.");
   if (!draft.subject.trim()) throw new ComposeError("Add a subject.");
 
@@ -119,6 +122,7 @@ export async function sendDraft(env: Env, user: string, draftId: string): Promis
       from,
       to,
       cc: cc.length ? cc : undefined,
+      bcc: bcc.length ? bcc : undefined,
       subject: draft.subject,
       html: draft.html ?? renderHtml(draft.text ?? ""),
       text: draft.text ?? undefined,

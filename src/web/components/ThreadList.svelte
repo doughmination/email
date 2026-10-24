@@ -68,7 +68,7 @@
     {#each items as t (t.id)}
       <li>
         <a
-          href="/{folder}/{t.id}{router.search}"
+          href={router.href(`/${folder}/${t.id}${router.search}`)}
           class="row"
           class:selected={selected === t.id}
           class:unread={t.unread > 0}

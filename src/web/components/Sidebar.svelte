@@ -57,7 +57,7 @@
   <ul class="folders">
     {#each folders as f (f.folder)}
       <li>
-        <a class="item" class:active={current === f.folder} href={folderHref(f.folder)}>
+        <a class="item" class:active={current === f.folder} href={router.href(folderHref(f.folder))}>
           <f.icon size={16} />
           <span>{f.label}</span>
           {#if f.folder === "inbox" && total}<span class="count">{total}</span>{/if}
@@ -70,13 +70,13 @@
     <h3 class="mailboxes-title">Mailboxes</h3>
     <ul class="mailboxes">
       <li>
-        <a class="item" class:active={!router.mailbox} href={folderHref(current ?? "inbox", null)}>
+        <a class="item" class:active={!router.mailbox} href={router.href(folderHref(current ?? "inbox", null))}>
           <span>All</span>
         </a>
       </li>
       {#each byDomain as [domain, addresses] (domain)}
         <li>
-          <a class="item domain" class:active={router.mailbox === `@${domain}`} href={folderHref(current ?? "inbox", `@${domain}`)}>
+          <a class="item domain" class:active={router.mailbox === `@${domain}`} href={router.href(folderHref(current ?? "inbox", `@${domain}`))}>
             <Globe size={14} />
             <span>{domain}</span>
             {#if unreadFor(domain)}<span class="count">{unreadFor(domain)}</span>{/if}
@@ -84,7 +84,7 @@
           <ul>
             {#each addresses as addr (addr)}
               <li>
-                <a class="item address" class:active={router.mailbox === addr} href={folderHref(current ?? "inbox", addr)}>
+                <a class="item address" class:active={router.mailbox === addr} href={router.href(folderHref(current ?? "inbox", addr))}>
                   <span>{addr.slice(0, addr.lastIndexOf("@"))}</span>
                   {#if session.unread[addr]}<span class="count">{session.unread[addr]}</span>{/if}
                 </a>
@@ -113,9 +113,9 @@
   {/if}
 
   <ul class="bottom">
-    <li><a class="item" class:active={route.name === "settings"} href="/settings"><SettingsIcon size={16} /> <span class="label">Settings</span></a></li>
+    <li><a class="item" class:active={route.name === "settings"} href={router.href("/settings")}><SettingsIcon size={16} /> <span class="label">Settings</span></a></li>
     {#if session.me?.isAdmin}
-      <li><a class="item" class:active={route.name === "admin"} href="/admin"><Shield size={16} /> <span class="label">Admin</span></a></li>
+      <li><a class="item" class:active={route.name === "admin"} href={router.href("/admin")}><Shield size={16} /> <span class="label">Admin</span></a></li>
     {/if}
     <li><button class="item" onclick={logout}><LogOut size={16} /> <span class="label">Log out</span></button></li>
   </ul>

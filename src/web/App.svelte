@@ -7,7 +7,7 @@
   import Sidebar from "./components/Sidebar.svelte";
   import ThreadList from "./components/ThreadList.svelte";
   import ThreadView from "./components/ThreadView.svelte";
-  import { router } from "./lib/router.svelte";
+  import { isDemo, router } from "./lib/router.svelte";
   import { composer, loadSession, session } from "./lib/state.svelte";
   import Admin from "./pages/Admin.svelte";
   import Settings from "./pages/Settings.svelte";
@@ -19,7 +19,7 @@
   const reading = $derived(route.name === "folder" && route.threadId !== null);
 
   $effect(() => {
-    if (location.pathname === "/") router.go("/inbox", { replace: true });
+    if (router.path === "/") router.go("/inbox", { replace: true });
   });
 </script>
 
@@ -49,6 +49,10 @@
   {/if}
 {/if}
 
+{#if isDemo}
+  <p class="demo" role="status">Demo: nothing is really sent, and reloading starts over.</p>
+{/if}
+
 <style>
   /* Panels float over the wallpaper, like the site's cards. */
   .shell {
@@ -71,6 +75,25 @@
 
   .boot {
     padding: 2rem;
+  }
+
+  .demo {
+    position: fixed;
+    bottom: 0.75rem;
+    left: 50%;
+    z-index: 20;
+    max-width: calc(100% - 2rem);
+    margin: 0;
+    padding: 0.35rem 0.9rem;
+    transform: translateX(-50%);
+    border: 1px solid var(--accent-line);
+    border-radius: 999px;
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-align: center;
+    pointer-events: none;
   }
 
   /* Phones: one column at a time. The list shows until a thread opens. */

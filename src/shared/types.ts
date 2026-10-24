@@ -47,6 +47,8 @@ export interface Message {
   from: string;
   to: string[];
   cc: string[];
+  /** Only on messages we sent (or drafts); always empty for received mail. */
+  bcc: string[];
   subject: string;
   /** Plain-text preview, shown while the message is collapsed. */
   snippet: string;
@@ -68,6 +70,7 @@ export interface ComposeInput {
   from: string;
   to: string[];
   cc: string[];
+  bcc: string[];
   subject: string;
   /** Plain text; the server renders the HTML part from it. */
   text: string;
