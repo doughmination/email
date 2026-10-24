@@ -34,7 +34,10 @@ changing too.
 ## CI
 
 `.github/workflows/build.yml` builds on every push and uploads `inbox.apk` as
-an artifact. Pushing a `v*` tag also attaches it to a GitHub release. It signs
+an artifact. Each build from `main` replaces the rolling `latest` release, so
+the newest APK is always at
+https://github.com/doughmination/email-app/releases/download/latest/inbox.apk.
+Pushing a `v*` tag also attaches it to a GitHub release of its own. It signs
 with two repository secrets:
 
 - `KEYSTORE_BASE64`: `base64 -w0 inbox.jks`

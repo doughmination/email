@@ -10,6 +10,11 @@ on:
 permissions:
   contents: write
 
+# Builds from main replace the same release, so let them finish in order.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -58,3 +63,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" inbox.apk --generate-notes
+
+      # A rolling "latest" release that always holds the newest build from main,
+      # so releases/download/latest/inbox.apk is a link that never changes.
+      - name: Publish rolling latest
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_SIGNING_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest inbox.apk \
+            --target "$GITHUB_SHA" \
+            --title "Latest build ($VERSION_NAME)" \
+            --notes "Built from ${GITHUB_SHA::7} on main. Installs over any earlier build." \
+            --latest
