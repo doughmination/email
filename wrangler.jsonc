@@ -3,7 +3,9 @@
 	"name": "email",
 	"main": "src/worker/index.ts",
 	"compatibility_date": "2026-10-01",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"observability": {
 		"enabled": true
 	},
@@ -12,14 +14,17 @@
 	// the Worker. Everything else falls back to index.html for the SPA router.
 	"assets": {
 		"not_found_handling": "single-page-application",
-		"run_worker_first": ["/api/*", "/auth/*", "/webhook/*"]
+		"run_worker_first": [
+			"/api/*",
+			"/auth/*",
+			"/webhook/*"
+		]
 	},
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "email-db-v2",
-			// `npx wrangler d1 create email-db-v2`, then paste its id here.
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "c6a27bce-97c3-4b10-ad2a-df4a308f494f",
 			"migrations_dir": "migrations"
 		}
 	],
@@ -31,7 +36,9 @@
 	],
 	"triggers": {
 		// Sweeps expired sessions and uploads that never made it into a message.
-		"crons": ["17 4 * * *"]
+		"crons": [
+			"17 4 * * *"
+		]
 	},
 	"vars": {
 		"ADMIN_USERS": "clove",
