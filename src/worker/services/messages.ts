@@ -56,6 +56,7 @@ function toMessage(row: MessageRow, attachments: AttachmentInfo[]): Message {
     to: JSON.parse(row.to_addrs) as string[],
     cc: JSON.parse(row.cc_addrs) as string[],
     subject: row.subject,
+    snippet: row.snippet,
     html: row.html,
     text: row.text,
     sentAt: row.sent_at,

@@ -4,6 +4,7 @@
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Forward from "@lucide/svelte/icons/forward";
   import MailOpen from "@lucide/svelte/icons/mail-open";
   import Paperclip from "@lucide/svelte/icons/paperclip";
@@ -11,8 +12,9 @@
   import Reply from "@lucide/svelte/icons/reply";
   import Trash from "@lucide/svelte/icons/trash";
   import type { Message, Thread } from "../../shared/types";
+  import { SvelteSet } from "svelte/reactivity";
   import { api } from "../lib/api";
-  import { fmtSize } from "../lib/format";
+  import { fmtSize, fmtTime } from "../lib/format";
   import { router } from "../lib/router.svelte";
   import { changed, composeDraft, composeForward, composeReply } from "../lib/state.svelte";
   import EmailFrame from "./EmailFrame.svelte";
@@ -30,6 +32,7 @@
     thread = null;
     error = "";
     confirming = null;
+    opened.clear();
     api
       .thread(threadId)
       .then((t) => {
@@ -49,6 +52,19 @@
 
   const last = $derived(thread?.messages.filter((m) => m.folder !== "drafts").at(-1) ?? thread?.messages.at(-1));
   const hasInbound = $derived(thread?.messages.some((m) => m.folder === "inbox") ?? false);
+
+  /** Newest first. The API sends them oldest first. */
+  const newestFirst = $derived(thread ? [...thread.messages].sort((a, b) => b.sentAt - a.sentAt) : []);
+  const newestId = $derived(newestFirst[0]?.id);
+  /** Older messages the user has opened; the newest is always open. */
+  const opened = new SvelteSet<string>();
+  const isOpen = (m: Message) => m.id === newestId || opened.has(m.id);
+
+  function toggle(m: Message) {
+    if (m.id === newestId) return;
+    if (opened.has(m.id)) opened.delete(m.id);
+    else opened.add(m.id);
+  }
 
   async function markUnread() {
     changed((await api.markThread(id, false)).unread);
@@ -85,30 +101,63 @@
   {:else}
     <h2>{thread.subject || "(no subject)"}</h2>
 
-    {#each thread.messages as m (m.id)}
-      <section class="message" class:draft={m.folder === "drafts"}>
+    {#if last}
+      <div class="actions">
+        <button class="btn accent" onclick={() => composeReply(last)}><Reply size={14} /> Reply</button>
+        <button class="btn" onclick={() => composeForward(last)}><Forward size={14} /> Forward</button>
+        {#if hasInbound}
+          <button class="btn" onclick={markUnread}><MailOpen size={14} /> Mark unread</button>
+        {/if}
+        <button class="btn danger" onclick={removeThread}>
+          <Trash size={14} />
+          {confirming === "thread" ? "Click again to delete" : "Delete conversation"}
+        </button>
+      </div>
+    {/if}
+
+    {#each newestFirst as m (m.id)}
+      {@const open = isOpen(m)}
+      <section class="message" class:draft={m.folder === "drafts"} class:collapsed={!open}>
         <header>
-          <div>
+          <button
+            class="summary"
+            onclick={() => toggle(m)}
+            disabled={m.id === newestId}
+            aria-expanded={open}
+            title={m.id === newestId ? undefined : open ? "Collapse" : "Expand"}
+          >
             <span class="badge {m.folder}">{m.folder === "inbox" ? "received" : m.folder === "sent" ? "sent" : "draft"}</span>
             <strong>{m.from}</strong>
-            <span class="muted">to {m.to.join(", ")}{m.cc.length ? `, cc ${m.cc.join(", ")}` : ""}</span>
-          </div>
-          <div class="right">
-            <time class="muted">{new Date(m.sentAt).toLocaleString()}</time>
-            {#if m.folder === "drafts"}
-              <button class="btn icon" title="Edit draft" onclick={() => composeDraft(m)}><Pencil size={14} /></button>
+            {#if open}
+              <span class="muted">to {m.to.join(", ")}{m.cc.length ? `, cc ${m.cc.join(", ")}` : ""}</span>
+            {:else}
+              <span class="muted snippet">{m.snippet}</span>
             {/if}
-            <button
-              class="btn icon"
-              class:danger={confirming === m.id}
-              title={confirming === m.id ? "Click again to delete" : "Delete this message"}
-              onclick={() => removeMessage(m)}
-            >
-              <Trash size={14} />
-            </button>
+          </button>
+          <div class="right">
+            <time class="muted">{open ? new Date(m.sentAt).toLocaleString() : fmtTime(m.sentAt)}</time>
+            {#if open}
+              {#if m.folder === "drafts"}
+                <button class="btn icon" title="Edit draft" onclick={() => composeDraft(m)}><Pencil size={14} /></button>
+              {/if}
+              <button
+                class="btn icon"
+                class:danger={confirming === m.id}
+                title={confirming === m.id ? "Click again to delete" : "Delete this message"}
+                onclick={() => removeMessage(m)}
+              >
+                <Trash size={14} />
+              </button>
+            {/if}
+            {#if m.id !== newestId}
+              <button class="btn icon chevron" class:open title={open ? "Collapse" : "Expand"} onclick={() => toggle(m)}>
+                <ChevronDown size={14} />
+              </button>
+            {/if}
           </div>
         </header>
 
+        {#if open}
         {#if m.html}
           <EmailFrame html={m.html} attachments={m.attachments} />
         {:else}
@@ -130,22 +179,9 @@
             {/each}
           </ul>
         {/if}
+        {/if}
       </section>
     {/each}
-
-    {#if last}
-      <footer>
-        <button class="btn accent" onclick={() => composeReply(last)}><Reply size={14} /> Reply</button>
-        <button class="btn" onclick={() => composeForward(last)}><Forward size={14} /> Forward</button>
-        {#if hasInbound}
-          <button class="btn" onclick={markUnread}><MailOpen size={14} /> Mark unread</button>
-        {/if}
-        <button class="btn danger" onclick={removeThread}>
-          <Trash size={14} />
-          {confirming === "thread" ? "Click again to delete" : "Delete conversation"}
-        </button>
-      </footer>
-    {/if}
   {/if}
 </article>
 
@@ -255,11 +291,72 @@
     outline-color: var(--accent);
   }
 
-  footer {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Collapsed: one line (sender, preview, time); click to open. */
+  .message.collapsed {
+    padding-block: 0.6rem;
+    transition: border-color 0.15s ease;
+  }
+
+  .message.collapsed:hover {
+    border-color: var(--accent-line);
+  }
+
+  .message.collapsed header {
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+  }
+
+  .summary {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font-size: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .summary:disabled {
+    cursor: default;
+  }
+
+  .collapsed .summary {
+    flex-wrap: nowrap;
+  }
+
+  .collapsed .summary strong {
+    flex-shrink: 0;
+  }
+
+  .snippet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .right time {
+    white-space: nowrap;
+  }
+
+  .chevron :global(svg) {
+    transition: transform 0.15s ease;
+  }
+
+  .chevron.open :global(svg) {
+    transform: rotate(180deg);
   }
 
   @media (max-width: 800px) {

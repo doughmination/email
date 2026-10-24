@@ -48,6 +48,8 @@ export interface Message {
   to: string[];
   cc: string[];
   subject: string;
+  /** Plain-text preview, shown while the message is collapsed. */
+  snippet: string;
   /** Email HTML. Only ever render it inside the sandboxed EmailFrame. */
   html: string | null;
   text: string | null;
