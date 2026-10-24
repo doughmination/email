@@ -114,3 +114,78 @@ export async function receiveEmail(env: Env, emailId: string): Promise<{ stored:
   }
   return { stored };
 }
+
+export interface Bounce {
+  /** Resend's id for the email that bounced, stored as resend_id on our Sent copy. */
+  emailId: string;
+  to: string[];
+  subject: string;
+  bouncedAt: string;
+  type: string;
+  subType: string;
+  message: string;
+}
+
+/**
+ * Puts a delivery-failure notice into the sender's inbox, in the same
+ * conversation as the message that bounced. Bounces for mail this inbox
+ * didn't send (the old proxy, say) are ignored. Safe to run again: the
+ * notice's resend_id is derived from the bounced email's, so a retry is a no-op.
+ */
+export async function receiveBounce(env: Env, bounce: Bounce): Promise<{ stored: number }> {
+  const sent = await env.DB.prepare(
+    "SELECT id, owner, thread_id, mailbox, from_addr, subject FROM messages WHERE resend_id = ? AND folder = 'sent'",
+  )
+    .bind(bounce.emailId)
+    .first<{ id: string; owner: string; thread_id: string; mailbox: string; from_addr: string; subject: string }>();
+  if (!sent) return { stored: 0 };
+
+  const domain = sent.mailbox.slice(sent.mailbox.lastIndexOf("@") + 1);
+  const sentAt = Date.parse(bounce.bouncedAt) || Date.now();
+  const kind = [bounce.type, bounce.subType].filter(Boolean).join(" / ");
+  const text = [
+    "Your message couldn't be delivered.",
+    "",
+    `To: ${bounce.to.join(", ")}`,
+    `Subject: ${sent.subject}`,
+    ...(kind ? [`Bounce: ${kind}`] : []),
+    "",
+    bounce.message || "The receiving server gave no reason.",
+  ].join("\n");
+
+  const id = crypto.randomUUID();
+  const [inserted] = await env.DB.batch([
+    insertMessageStatement(env, sent.thread_id, {
+      id,
+      owner: sent.owner,
+      folder: "inbox",
+      mailbox: sent.mailbox,
+      resend_id: `bounce:${bounce.emailId}`,
+      message_id: null,
+      in_reply_to: null,
+      refs: null,
+      from_addr: `Mail Delivery <mailer-daemon@${domain}>`,
+      to_addrs: JSON.stringify([sent.from_addr]),
+      cc_addrs: "[]",
+      subject: `Undelivered: ${sent.subject || bounce.subject || "(no subject)"}`,
+      html: null,
+      text,
+      sent_at: sentAt,
+      read: false,
+    }),
+    env.DB.prepare("UPDATE threads SET last_at = MAX(last_at, ?) WHERE id = ?").bind(sentAt, sent.thread_id),
+  ]);
+  if (!inserted?.meta.changes) return { stored: 0 };
+
+  try {
+    await notifyUser(env, sent.owner, {
+      title: "Message not delivered",
+      body: `${sent.subject || "(no subject)"} to ${bounce.to.join(", ")}`,
+      url: `/inbox/${sent.thread_id}`,
+      tag: id,
+    });
+  } catch (err) {
+    console.error("Push notification failed", err);
+  }
+  return { stored: 1 };
+}
