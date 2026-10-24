@@ -1,7 +1,7 @@
 import { bareAddress } from "../lib/address";
 import { cleanContentId, inboundKey, insertAttachmentStatement } from "./attachments";
 import { routeRecipients } from "./directory";
-import { insertMessage, resolveThread } from "./messages";
+import { insertMessageStatement, resolveThread } from "./messages";
 import { notifyUser } from "./push";
 import { resend } from "./resend";
 
@@ -63,42 +63,42 @@ export async function receiveEmail(env: Env, emailId: string): Promise<{ stored:
       sentAt,
     });
     const id = crypto.randomUUID();
-    const inserted = await insertMessage(env, threadId, {
-      id,
-      owner,
-      folder: "inbox",
-      mailbox,
-      resend_id: emailId,
-      message_id: email.message_id || null,
-      in_reply_to: inReplyTo,
-      refs,
-      from_addr: email.from,
-      to_addrs: JSON.stringify(email.to),
-      cc_addrs: JSON.stringify(email.cc ?? []),
-      subject: email.subject || "(no subject)",
-      html: email.html,
-      text: email.text,
-      sent_at: sentAt,
-      read: false,
-    });
-    if (!inserted) continue;
-
-    if (files.length) {
-      await env.DB.batch(
-        files.map((a) =>
-          insertAttachmentStatement(env, {
-            id: crypto.randomUUID(),
-            owner,
-            messageId: id,
-            r2Key: inboundKey(emailId, a.id),
-            filename: a.filename || "attachment",
-            contentType: a.content_type || "application/octet-stream",
-            size: a.size,
-            contentId: cleanContentId(a.content_id),
-          }),
-        ),
-      );
-    }
+    // One batch (one transaction), so a crash can't leave the message stored
+    // without its attachments for a retry to then skip. If this copy already
+    // exists the message insert is a no-op and so are the attachment inserts.
+    const [message] = await env.DB.batch([
+      insertMessageStatement(env, threadId, {
+        id,
+        owner,
+        folder: "inbox",
+        mailbox,
+        resend_id: emailId,
+        message_id: email.message_id || null,
+        in_reply_to: inReplyTo,
+        refs,
+        from_addr: email.from,
+        to_addrs: JSON.stringify(email.to),
+        cc_addrs: JSON.stringify(email.cc ?? []),
+        subject: email.subject || "(no subject)",
+        html: email.html,
+        text: email.text,
+        sent_at: sentAt,
+        read: false,
+      }),
+      ...files.map((a) =>
+        insertAttachmentStatement(env, {
+          id: crypto.randomUUID(),
+          owner,
+          messageId: id,
+          r2Key: inboundKey(emailId, a.id),
+          filename: a.filename || "attachment",
+          contentType: a.content_type || "application/octet-stream",
+          size: a.size,
+          contentId: cleanContentId(a.content_id),
+        }),
+      ),
+    ]);
+    if (!message?.meta.changes) continue;
     stored++;
 
     try {

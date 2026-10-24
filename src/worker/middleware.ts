@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { getCookie } from "hono/cookie";
 import { getUser } from "./services/directory";
-import { sessionUsername } from "./services/sessions";
+import { sessionIdentity } from "./services/sessions";
 
 export type AppEnv = {
   Bindings: Env;
@@ -25,11 +25,12 @@ export const sameOrigin = createMiddleware<AppEnv>(async (c, next) => {
 });
 
 export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
-  const username = await sessionUsername(c.env, getCookie(c, "session"));
-  // A session outlives an admin deleting the user; the row is the authority.
-  const user = username ? await getUser(c.env, username) : null;
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
-  c.set("user", user);
+  const identity = await sessionIdentity(c.env, getCookie(c, "session"));
+  // A session outlives an admin deleting the user, and the username may since
+  // belong to a different SSO account; the row, matched on sub, is the authority.
+  const user = identity ? await getUser(c.env, identity.username) : null;
+  if (!user || user.sub !== identity?.sub) return c.json({ error: "Unauthorized" }, 401);
+  c.set("user", { username: user.username, isAdmin: user.isAdmin });
   return next();
 });
 

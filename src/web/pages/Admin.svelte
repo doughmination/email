@@ -42,14 +42,21 @@
     return d.resend.sending ? "receiving + sending" : "receiving only; sending off in Resend";
   }
 
-  /** Runs a change, then refreshes this page and the user's own addresses. */
+  /**
+   * Runs a change, then refreshes this page and the user's own addresses,
+   * even if the change failed, so a checkbox or dropdown snaps back to what's
+   * really saved. The action's own error is the one shown.
+   */
   async function act(fn: () => Promise<unknown>) {
     error = "";
+    let failure = "";
     try {
       await fn();
-      await Promise.all([load(), loadSession()]);
     } catch (e) {
-      error = (e as Error).message;
+      failure = (e as Error).message;
+    } finally {
+      await Promise.all([load(), loadSession().catch(() => {})]);
+      if (failure) error = failure;
     }
   }
 

@@ -21,10 +21,15 @@ export interface AttachmentRecord {
   contentId: string | null;
 }
 
+/**
+ * Inserts nothing when messageId is set but that message doesn't exist, so
+ * it can be batched after a message insert that may have been a no-op.
+ */
 export function insertAttachmentStatement(env: Env, a: AttachmentRecord): D1PreparedStatement {
   return env.DB.prepare(
     "INSERT INTO attachments (id, owner, message_id, r2_key, filename, content_type, size, content_id, created_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING",
+      "SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9 " +
+      "WHERE ?3 IS NULL OR EXISTS (SELECT 1 FROM messages WHERE id = ?3) ON CONFLICT (id) DO NOTHING",
   ).bind(a.id, a.owner, a.messageId, a.r2Key, a.filename, a.contentType, a.size, a.contentId, Date.now());
 }
 

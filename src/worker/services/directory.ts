@@ -71,27 +71,27 @@ function bootstrapAdmins(env: Env): Set<string> {
 export async function recordLogin(env: Env, tokens: TokenSet): Promise<void> {
   const username = tokens.username.toLowerCase();
   const ts = Date.now();
-  const existing = await env.DB.prepare("SELECT sub FROM users WHERE username = ?")
-    .bind(username)
-    .first<{ sub: string }>();
-
-  if (existing && existing.sub !== tokens.sub) {
-    throw new AccountConflict(`username ${username} already belongs to a different SSO account`);
-  }
-
   const admin = bootstrapAdmins(env).has(username) ? 1 : 0;
-  await env.DB.prepare(
+  // One statement, so two sign-ins racing can't both get past a separate check:
+  // an existing row is only touched when it's the same SSO account.
+  const res = await env.DB.prepare(
     "INSERT INTO users (username, sub, is_admin, created_at, last_login_at) VALUES (?, ?, ?, ?, ?) " +
       "ON CONFLICT (username) DO UPDATE SET last_login_at = excluded.last_login_at, " +
-      "is_admin = MAX(users.is_admin, excluded.is_admin)",
+      "is_admin = MAX(users.is_admin, excluded.is_admin) WHERE users.sub = excluded.sub",
   )
     .bind(username, tokens.sub, admin, ts, ts)
     .run();
+  if (res.meta.changes === 0) {
+    throw new AccountConflict(`username ${username} already belongs to a different SSO account`);
+  }
 }
 
-export async function getUser(env: Env, username: string): Promise<{ username: string; isAdmin: boolean } | null> {
-  const row = await env.DB.prepare("SELECT username, is_admin FROM users WHERE username = ?")
+export async function getUser(
+  env: Env,
+  username: string,
+): Promise<{ username: string; sub: string; isAdmin: boolean } | null> {
+  const row = await env.DB.prepare("SELECT username, sub, is_admin FROM users WHERE username = ?")
     .bind(username.toLowerCase())
-    .first<{ username: string; is_admin: number }>();
-  return row ? { username: row.username, isAdmin: row.is_admin === 1 } : null;
+    .first<{ username: string; sub: string; is_admin: number }>();
+  return row ? { username: row.username, sub: row.sub, isAdmin: row.is_admin === 1 } : null;
 }

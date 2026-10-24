@@ -16,36 +16,39 @@
   let cursor = $state<string | null>(null);
   let loading = $state(false);
   let error = $state("");
+  /** Bumped on every reload; a response from an older one is dropped. */
+  let generation = 0;
 
   $effect(() => {
     // Reload when the folder, mailbox filter or session.version changes.
     const key = [folder, router.mailbox, session.version] as const;
-    let stale = false;
+    const gen = ++generation;
     loading = true;
     error = "";
     api
       .threads(key[0], key[1])
       .then((page) => {
-        if (stale) return;
+        if (gen !== generation) return;
         items = page.items;
         cursor = page.nextCursor;
       })
-      .catch((e: Error) => !stale && (error = e.message))
-      .finally(() => !stale && (loading = false));
-    return () => (stale = true);
+      .catch((e: Error) => gen === generation && (error = e.message))
+      .finally(() => gen === generation && (loading = false));
   });
 
   async function more() {
     if (!cursor) return;
+    const gen = generation;
     loading = true;
     try {
       const page = await api.threads(folder, router.mailbox, cursor);
+      if (gen !== generation) return;
       items = [...items, ...page.items];
       cursor = page.nextCursor;
     } catch (e) {
-      error = (e as Error).message;
+      if (gen === generation) error = (e as Error).message;
     } finally {
-      loading = false;
+      if (gen === generation) loading = false;
     }
   }
 

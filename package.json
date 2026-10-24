@@ -8,7 +8,7 @@
     "preview": "npm run build && vite preview",
     "deploy": "npm run build && wrangler deploy",
     "types": "wrangler types src/worker/worker-configuration.d.ts --env-file .dev.vars.example",
-    "typecheck": "tsc -p src/worker && svelte-check --tsconfig src/web/tsconfig.json",
+    "typecheck": "tsc -p src/worker && tsc -p test && svelte-check --tsconfig src/web/tsconfig.json",
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"

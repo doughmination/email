@@ -22,9 +22,7 @@ export function displayName(addr: string): string {
   return name || addr.replace(/[<>]/g, "");
 }
 
+/** Splits on , ; and newlines, except inside quotes: "Doe, Jane" <j@x.y> stays whole. */
 export function splitList(raw: string): string[] {
-  return raw
-    .split(/[,;\n]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return (raw.match(/(?:"[^"]*"?|[^,;\n"])+/g) ?? []).map((s) => s.trim()).filter(Boolean);
 }

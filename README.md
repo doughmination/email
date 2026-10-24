@@ -72,6 +72,6 @@ Then:
 | | |
 |---|---|
 | `npm run dev` | Vite + the Worker in workerd, with hot reload |
-| `npm run typecheck` | Worker (`tsc`) and app (`svelte-check`) |
+| `npm run typecheck` | Worker and tests (`tsc`), and the app (`svelte-check`) |
 | `npm test` | vitest inside workerd |
 | `npm run types` | regenerate `worker-configuration.d.ts` after changing `wrangler.jsonc` |

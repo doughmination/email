@@ -32,10 +32,16 @@
     confirming = null;
     api
       .thread(threadId)
-      .then(async (t) => {
+      .then((t) => {
         if (stale) return;
         thread = t;
-        if (t.messages.some((m) => !m.read)) changed((await api.markThread(threadId, true)).unread);
+        // Failing to mark it read shouldn't hide a thread that loaded fine.
+        if (t.messages.some((m) => !m.read)) {
+          api.markThread(threadId, true).then(
+            (r) => changed(r.unread),
+            (e: Error) => console.warn("Could not mark thread read", e),
+          );
+        }
       })
       .catch((e: Error) => !stale && (error = e.message));
     return () => (stale = true);

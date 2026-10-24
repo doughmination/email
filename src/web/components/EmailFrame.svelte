@@ -49,7 +49,7 @@
     const remote = showRemote ? " https:" : "";
     const csp =
       `default-src 'none'; img-src 'self' data:${remote}; style-src 'unsafe-inline'${remote}; ` +
-      `font-src data:${remote}; media-src 'none'; form-action 'none'`;
+      `font-src data:${remote}; media-src 'none'; form-action 'none'; base-uri 'none'`;
     return (
       `<!doctype html><html><head><meta charset="utf-8">` +
       `<meta http-equiv="Content-Security-Policy" content="${csp}">` +

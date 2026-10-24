@@ -133,7 +133,12 @@ export async function resolveThread(
 
 /** Returns false when this (resend_id, owner) copy was already stored. */
 export async function insertMessage(env: Env, threadId: string, m: NewMessage): Promise<boolean> {
-  const res = await env.DB.prepare(
+  return (await insertMessageStatement(env, threadId, m).run()).meta.changes > 0;
+}
+
+/** For batching with other writes; a no-op when this (resend_id, owner) copy already exists. */
+export function insertMessageStatement(env: Env, threadId: string, m: NewMessage): D1PreparedStatement {
+  return env.DB.prepare(
     "INSERT INTO messages (id, owner, thread_id, folder, mailbox, resend_id, message_id, in_reply_to, refs, " +
       "from_addr, to_addrs, cc_addrs, subject, snippet, html, text, sent_at, read) " +
       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (resend_id, owner) DO NOTHING",
@@ -157,9 +162,7 @@ export async function insertMessage(env: Env, threadId: string, m: NewMessage): 
       m.text,
       m.sent_at,
       m.read ? 1 : 0,
-    )
-    .run();
-  return res.meta.changes > 0;
+    );
 }
 
 export async function getMessageRow(env: Env, owner: string, id: string): Promise<MessageRow | null> {

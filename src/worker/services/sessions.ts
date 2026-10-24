@@ -138,11 +138,16 @@ async function revalidate(env: Env, token: string, session: Session): Promise<Se
   return task;
 }
 
-export async function sessionUsername(env: Env, token: string | undefined): Promise<string | null> {
+/** Who a session belongs to: the username and the SSO account (sub) behind it. */
+export async function sessionIdentity(
+  env: Env,
+  token: string | undefined,
+): Promise<{ username: string; sub: string } | null> {
   if (!token) return null;
   const session = await readSession(env, token);
   if (!session) return null;
-  return (await revalidate(env, token, session))?.username ?? null;
+  const valid = await revalidate(env, token, session);
+  return valid ? { username: valid.username, sub: valid.sub } : null;
 }
 
 /** Deletes the session and hands back what's needed to end it at the SSO too. */
