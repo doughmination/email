@@ -1,0 +1,199 @@
+/* mailbox/src/web/app.css
+ * Copyright (c) 2026 Clove Nytrix Doughmination Twilight
+ * Licensed under the DASL-1.0 Licence.
+ * See LICENCE.md in the project root for full licence information.
+ */
+
+/* Global tokens and base only; components carry their own scoped styles.
+   Email content never sees any of this: it renders inside EmailFrame's
+   iframe, which is also what keeps an email's fonts and styles off the app. */
+
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* The shared palette from the personal + info sites. The look is
+     deliberately "terminal": square corners, hard offset shadows, 2px
+     borders, uppercase tracked headings. */
+  --base: #0a0b10;
+  --mantle: #12141c;
+  --crust: #05060a;
+  --raised: #0e1017;
+  --surface0: #1b1e2a;
+  --surface1: #232838;
+  --surface2: #2c3346;
+  --text: #f4f6fb;
+  --subtext0: #9aa3c2;
+  --subtext1: #c9cfe0;
+  --overlay0: #5b6480;
+  --red: #d15f8c;
+  --pink: #f5a9b8;
+
+  --shadow-hard: 6px 6px 0 rgba(0, 0, 0, 0.38);
+  --shadow-hard-sm: 4px 4px 0 rgba(0, 0, 0, 0.38);
+  --font: "Comic Code", ui-monospace, monospace;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, var(--base) 0%, var(--raised) 60%, var(--crust) 100%) fixed;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  width: clamp(96px, 14vw, 168px);
+  aspect-ratio: 564 / 547;
+  background: url("https://m.doughmination.gay/img/bg/miku.png") center / contain no-repeat;
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--pink);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border: 2px solid var(--surface2);
+  border-radius: 0;
+  background: var(--surface0);
+  color: var(--text);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn.accent {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: var(--crust);
+  font-weight: 700;
+}
+
+.btn.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.btn.icon {
+  padding: 0.35rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--subtext0);
+}
+
+.field input,
+.field select,
+.field textarea {
+  padding: 0.5rem 0.6rem;
+  background: var(--crust);
+  border: 2px solid var(--surface1);
+  border-radius: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--pink);
+}
+
+.muted {
+  color: var(--subtext0);
+}
+
+.error {
+  color: var(--red);
+}
+
+h1,
+h2,
+h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
