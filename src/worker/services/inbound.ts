@@ -1,6 +1,7 @@
 import { bareAddress } from "../lib/address";
 import { cleanContentId, inboundKey, insertAttachmentStatement } from "./attachments";
 import { routeRecipients } from "./directory";
+import { notifyLive } from "./live";
 import { insertMessageStatement, resolveThread } from "./messages";
 import { notifyUser } from "./push";
 import { resend } from "./resend";
@@ -100,6 +101,7 @@ export async function receiveEmail(env: Env, emailId: string): Promise<{ stored:
     ]);
     if (!message?.meta.changes) continue;
     stored++;
+    await notifyLive(env, owner, { type: "mail", threadId });
 
     try {
       await notifyUser(env, owner, {
@@ -176,6 +178,7 @@ export async function receiveBounce(env: Env, bounce: Bounce): Promise<{ stored:
     env.DB.prepare("UPDATE threads SET last_at = MAX(last_at, ?) WHERE id = ?").bind(sentAt, sent.thread_id),
   ]);
   if (!inserted?.meta.changes) return { stored: 0 };
+  await notifyLive(env, sent.owner, { type: "mail", threadId: sent.thread_id });
 
   try {
     await notifyUser(env, sent.owner, {

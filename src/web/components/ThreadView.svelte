@@ -17,7 +17,7 @@
   import { api } from "../lib/api";
   import { bareAddress, displayName, fmtSize, fmtTime } from "../lib/format";
   import { router } from "../lib/router.svelte";
-  import { changed, composeDraft, composeForward, composeReply, composer } from "../lib/state.svelte";
+  import { changed, composeDraft, composeForward, composeReply, composer, session } from "../lib/state.svelte";
   import EmailFrame from "./EmailFrame.svelte";
 
   /** `bin`: showing the part of the thread that's in the Bin. */
@@ -51,6 +51,29 @@
       })
       .catch((e: Error) => !stale && (error = e.message));
     return () => (stale = true);
+  });
+
+  // New mail arrived in this thread while it's open: fetch it again in place.
+  let seenLive = session.liveThread?.n ?? 0;
+  $effect(() => {
+    const live = session.liveThread;
+    if (!live || live.n === seenLive) return;
+    seenLive = live.n;
+    if (live.id !== id || !thread) return;
+    const threadId = id;
+    api.thread(threadId, bin).then(
+      (t) => {
+        if (threadId !== id) return;
+        thread = t;
+        if (t.messages.some((m) => !m.read)) {
+          api.markThread(threadId, true).then(
+            (r) => changed(r.unread),
+            (e: Error) => console.warn("Could not mark thread read", e),
+          );
+        }
+      },
+      (e: Error) => console.warn("Could not refresh thread", e),
+    );
   });
 
   const last = $derived(thread?.messages.filter((m) => m.folder !== "drafts").at(-1) ?? thread?.messages.at(-1));

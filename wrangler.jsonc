@@ -28,6 +28,23 @@
 			"migrations_dir": "migrations"
 		}
 	],
+	// One LiveHub per user holds their open tabs' WebSockets for live updates.
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "LIVE",
+				"class_name": "LiveHub"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"LiveHub"
+			]
+		}
+	],
 	"r2_buckets": [
 		{
 			"binding": "BUCKET",

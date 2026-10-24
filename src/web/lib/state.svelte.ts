@@ -7,6 +7,8 @@ export const session = $state({
   unread: {} as Record<string, number>,
   /** Bumped after anything that changes the lists, so they reload. */
   version: 0,
+  /** The thread the latest live update was for; `n` makes repeats distinct. */
+  liveThread: null as { id: string; n: number } | null,
 });
 
 export async function loadSession() {

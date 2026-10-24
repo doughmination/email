@@ -7,13 +7,16 @@
   import Sidebar from "./components/Sidebar.svelte";
   import ThreadList from "./components/ThreadList.svelte";
   import ThreadView from "./components/ThreadView.svelte";
+  import { startLive } from "./lib/live";
   import { isDemo, router } from "./lib/router.svelte";
   import { composer, loadSession, session } from "./lib/state.svelte";
   import Admin from "./pages/Admin.svelte";
   import Settings from "./pages/Settings.svelte";
 
   let error = $state("");
-  loadSession().catch((e: Error) => (error = e.message));
+  loadSession()
+    .then(() => !isDemo && startLive())
+    .catch((e: Error) => (error = e.message));
 
   const route = $derived(router.route);
   const reading = $derived(route.name === "folder" && route.threadId !== null);
