@@ -81,10 +81,10 @@ export const api = {
   pushTest: () => post<{ sent: number }>("/api/push/test"),
 
   admin: {
-    domains: () => get<DomainInfo[]>("/api/admin/domains"),
+    /** Syncs from Resend first; syncError is set when Resend couldn't be reached. */
+    domains: () => get<{ domains: DomainInfo[]; syncError: string | null }>("/api/admin/domains"),
     saveDomain: (name: string, enabled: boolean, catchAll: string | null) =>
       put(`/api/admin/domains/${encodeURIComponent(name)}`, { enabled, catchAll }),
-    deleteDomain: (name: string) => del(`/api/admin/domains/${encodeURIComponent(name)}`),
     aliases: () => get<AliasInfo[]>("/api/admin/aliases"),
     addAlias: (a: AliasInfo) => post("/api/admin/aliases", a),
     deleteAlias: (a: AliasInfo) =>

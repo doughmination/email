@@ -80,28 +80,40 @@
 <style>
   .page {
     grid-column: 2 / -1;
-    padding: 1.5rem;
     overflow-y: auto;
-  }
-
-  section {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    max-width: 640px;
-    background: var(--mantle);
-    border: 2px solid var(--surface1);
-    box-shadow: var(--shadow-hard);
+    padding: 0.5rem 0.25rem;
   }
 
   h1 {
-    font-size: 1.1rem;
+    margin: 0.5rem 0 1.25rem;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  section {
+    max-width: 640px;
+    margin-bottom: 1rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
   }
 
   h2 {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    margin-top: 0;
-    font-size: 0.9rem;
+    margin: 0 0 0.5rem;
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  ul {
+    padding-left: 1.1rem;
   }
 </style>

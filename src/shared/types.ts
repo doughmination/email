@@ -77,9 +77,13 @@ export interface ComposeInput {
 
 export interface DomainInfo {
   name: string;
+  /** The admin's switch. New domains from Resend start switched on. */
   enabled: boolean;
+  /** Actually routing mail: enabled, and Resend has receiving on. */
+  active: boolean;
   catchAll: string | null;
-  /** What Resend reports for it, when Resend knows the domain. */
+  syncedAt: number | null;
+  /** What Resend last reported; null once the domain is gone from Resend. */
   resend: { status: string; sending: boolean; receiving: boolean } | null;
 }
 

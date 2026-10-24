@@ -6,6 +6,7 @@ import { auth } from "./routes/auth";
 import { mail } from "./routes/mail";
 import { webhook } from "./routes/webhook";
 import { sweepOrphanUploads } from "./services/attachments";
+import { syncDomains } from "./services/domains";
 import { sweepExpired } from "./services/sessions";
 
 // Only /api, /auth and /webhook reach the Worker (see run_worker_first in
@@ -27,6 +28,6 @@ const app = new Hono<AppEnv>()
 export default {
   fetch: app.fetch,
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(Promise.all([sweepExpired(env), sweepOrphanUploads(env)]));
+    ctx.waitUntil(Promise.all([sweepExpired(env), sweepOrphanUploads(env), syncDomains(env)]));
   },
 } satisfies ExportedHandler<Env>;

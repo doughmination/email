@@ -54,7 +54,7 @@
 <nav class="sidebar">
   <button class="btn accent compose" onclick={composeNew}><SquarePen size={16} /> New message</button>
 
-  <ul>
+  <ul class="folders">
     {#each folders as f (f.folder)}
       <li>
         <a class="item" class:active={current === f.folder} href={folderHref(f.folder)}>
@@ -67,8 +67,8 @@
   </ul>
 
   {#if byDomain.length > 1 || (byDomain[0]?.[1].length ?? 0) > 1}
-    <h3>Mailboxes</h3>
-    <ul>
+    <h3 class="mailboxes-title">Mailboxes</h3>
+    <ul class="mailboxes">
       <li>
         <a class="item" class:active={!router.mailbox} href={folderHref(current ?? "inbox", null)}>
           <span>All</span>
@@ -96,12 +96,28 @@
     </ul>
   {/if}
 
+  {#if byDomain.length > 1 || (byDomain[0]?.[1].length ?? 0) > 1}
+    <!-- Phones get the mailbox tree as a dropdown. -->
+    <select
+      class="input mailbox-picker"
+      aria-label="Mailbox"
+      value={router.mailbox ?? ""}
+      onchange={(e) => router.go(folderHref(current ?? "inbox", e.currentTarget.value || null))}
+    >
+      <option value="">All mailboxes</option>
+      {#each byDomain as [domain, addresses] (domain)}
+        <option value="@{domain}">{domain}</option>
+        {#each addresses as addr (addr)}<option value={addr}>&nbsp;&nbsp;{addr}</option>{/each}
+      {/each}
+    </select>
+  {/if}
+
   <ul class="bottom">
-    <li><a class="item" class:active={route.name === "settings"} href="/settings"><SettingsIcon size={16} /> Settings</a></li>
+    <li><a class="item" class:active={route.name === "settings"} href="/settings"><SettingsIcon size={16} /> <span class="label">Settings</span></a></li>
     {#if session.me?.isAdmin}
-      <li><a class="item" class:active={route.name === "admin"} href="/admin"><Shield size={16} /> Admin</a></li>
+      <li><a class="item" class:active={route.name === "admin"} href="/admin"><Shield size={16} /> <span class="label">Admin</span></a></li>
     {/if}
-    <li><button class="item" onclick={logout}><LogOut size={16} /> Log out</button></li>
+    <li><button class="item" onclick={logout}><LogOut size={16} /> <span class="label">Log out</span></button></li>
   </ul>
 </nav>
 
@@ -110,9 +126,11 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding: 0.85rem 0.6rem;
-    background: var(--crust);
-    border-right: 2px solid var(--surface1);
+    padding: 1rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
     overflow-y: auto;
   }
 
@@ -128,39 +146,36 @@
   }
 
   ul ul {
-    padding-left: 1.4rem;
+    padding-left: 1.1rem;
   }
 
   h3 {
-    margin: 0.75rem 0 0.25rem 0.75rem;
+    margin: 0.9rem 0 0.25rem 0.75rem;
+    color: var(--accent);
     font-size: 0.7rem;
-    color: var(--overlay0);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
   }
 
   .item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.55rem;
     width: 100%;
     padding: 0.45rem 0.75rem;
     border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--subtext1);
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: left;
     text-decoration: none;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-size: 0.8rem;
     cursor: pointer;
-    transition: background 0.12s ease, transform 0.12s ease;
-  }
-
-  .item.address {
-    text-transform: none;
-    letter-spacing: normal;
-  }
-
-  .item.domain {
-    text-transform: none;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
   }
 
   .item span:not(.count) {
@@ -170,28 +185,74 @@
   }
 
   .item:hover {
-    background: var(--surface0);
-    transform: translateX(2px);
+    background: var(--raised-hover);
+    color: var(--text);
   }
 
   .item.active {
-    background: var(--surface0);
+    border-color: var(--accent-line);
+    background: var(--accent-dim);
     color: var(--text);
-    font-weight: 700;
-    border-color: var(--pink);
-    border-left-width: 3px;
+    font-weight: 600;
   }
 
   .count {
     margin-left: auto;
-    padding: 0 0.4rem;
-    background: var(--pink);
-    color: var(--crust);
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
     font-size: 0.7rem;
     font-weight: 700;
   }
 
   .bottom {
     margin-top: auto;
+  }
+  .mailbox-picker {
+    display: none;
+  }
+
+  /* Phones: one scrollable row of folders, with mailboxes as a dropdown. */
+  @media (max-width: 800px) {
+    .sidebar {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.5rem;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .compose {
+      flex-shrink: 0;
+      margin: 0;
+    }
+
+    .folders,
+    .bottom {
+      display: flex;
+      flex-shrink: 0;
+      margin: 0;
+    }
+
+    .mailboxes-title,
+    .mailboxes,
+    .bottom .label {
+      display: none;
+    }
+
+    .mailbox-picker {
+      display: block;
+      flex-shrink: 0;
+      max-width: 11rem;
+      padding-block: 0.35rem;
+      font-size: 0.85rem;
+    }
+
+    .item {
+      width: auto;
+      white-space: nowrap;
+    }
   }
 </style>

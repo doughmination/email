@@ -89,14 +89,16 @@
 ></iframe>
 
 <style>
+  /* Emails are designed for a light page, so the frame stays white. */
   iframe {
     display: block;
     width: 100%;
-    border: 2px solid var(--surface1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
     background: #fff;
   }
 
   .remote {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
   }
 </style>

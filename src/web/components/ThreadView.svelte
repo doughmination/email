@@ -145,8 +145,8 @@
 
 <style>
   .view {
-    padding: 1.25rem;
     overflow-y: auto;
+    padding-right: 0.25rem;
   }
 
   .back {
@@ -155,20 +155,24 @@
   }
 
   h2 {
-    margin: 0 0 1rem;
-    font-size: 1.1rem;
+    margin: 0.5rem 0 1rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
   .message {
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: var(--mantle);
-    border: 2px solid var(--surface1);
-    box-shadow: var(--shadow-hard);
+    margin-bottom: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
   }
 
   .message.draft {
     border-style: dashed;
+    border-color: var(--accent-line);
   }
 
   header {
@@ -176,7 +180,7 @@
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.9rem;
     font-size: 0.85rem;
   }
 
@@ -187,23 +191,28 @@
   }
 
   .badge {
-    padding: 0 0.35rem;
-    margin-right: 0.35rem;
-    font-size: 0.7rem;
+    margin-right: 0.4rem;
+    padding: 0.05rem 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    border: 1px solid var(--surface2);
   }
 
   .badge.inbox {
-    border-color: var(--pink);
-    color: var(--pink);
+    border-color: var(--accent-line);
+    background: var(--accent-dim);
+    color: var(--accent);
   }
 
   pre {
     margin: 0;
+    font-family: var(--font);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font-family: var(--font);
   }
 
   .files {
@@ -211,27 +220,40 @@
     flex-wrap: wrap;
     gap: 0.75rem;
     list-style: none;
-    margin: 0.75rem 0 0;
+    margin: 0.9rem 0 0;
     padding: 0;
     font-size: 0.85rem;
   }
 
   .files li {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+  }
+
+  /* An image preview sits on its own line above the file name. */
+  .files li > a:has(img) {
+    flex-basis: 100%;
   }
 
   .files img {
     max-width: 160px;
     max-height: 120px;
-    border: 2px solid var(--surface1);
+    border-radius: var(--radius-sm);
+    outline: 1px solid var(--line);
+    transition: outline-color 0.15s ease;
+  }
+
+  .files a:hover img {
+    outline-color: var(--accent);
   }
 
   footer {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    padding-bottom: 0.75rem;
   }
 
   @media (max-width: 800px) {

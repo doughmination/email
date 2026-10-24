@@ -5,6 +5,10 @@
  */
 
 /* Global tokens and base only; components carry their own scoped styles.
+   The look follows ~/projects/web (theme.css, header.css, contact.css):
+   translucent raised surfaces, hairline borders, rounded cards that pick up
+   an accent ring on hover, pill buttons. The font stays Comic Code.
+
    Email content never sees any of this: it renders inside EmailFrame's
    iframe, which is also what keeps an email's fonts and styles off the app. */
 
@@ -38,25 +42,22 @@
 }
 
 :root {
-  /* The shared palette from the personal + info sites. The look is
-     deliberately "terminal": square corners, hard offset shadows, 2px
-     borders, uppercase tracked headings. */
-  --base: #0a0b10;
-  --mantle: #12141c;
-  --crust: #05060a;
-  --raised: #0e1017;
-  --surface0: #1b1e2a;
-  --surface1: #232838;
-  --surface2: #2c3346;
-  --text: #f4f6fb;
-  --subtext0: #9aa3c2;
-  --subtext1: #c9cfe0;
-  --overlay0: #5b6480;
-  --red: #d15f8c;
-  --pink: #f5a9b8;
+  /* From the site's theme.css. */
+  --bg: #0b0a0d;
+  --raised: rgb(255 255 255 / 3.5%);
+  --line: rgb(255 255 255 / 9%);
+  --text: #ece9ef;
+  --muted: #a49eab;
+  --accent: #eb459e;
+  --accent-dim: rgb(235 69 158 / 14%);
 
-  --shadow-hard: 6px 6px 0 rgba(0, 0, 0, 0.38);
-  --shadow-hard-sm: 4px 4px 0 rgba(0, 0, 0, 0.38);
+  /* Derived for the app: hovered/selected rows, accent borders, panels. */
+  --raised-hover: rgb(255 255 255 / 6%);
+  --accent-line: rgb(235 69 158 / 40%);
+  --panel: rgb(11 10 13 / 72%);
+  --danger: #ff5c7a;
+  --radius: 1rem;
+  --radius-sm: 0.5rem;
   --font: "Comic Code", ui-monospace, monospace;
 
   color-scheme: dark;
@@ -66,6 +67,11 @@
   box-sizing: border-box;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 14%) transparent;
+}
+
 html,
 body {
   height: 100%;
@@ -73,23 +79,33 @@ body {
 
 body {
   margin: 0;
-  background: linear-gradient(135deg, var(--base) 0%, var(--raised) 60%, var(--crust) 100%) fixed;
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 15px;
+  line-height: 1.6;
 }
 
+/* The site's wallpaper and fade (header.css .backdrop), fixed behind the
+   whole app rather than just the top of a page. */
+body::before,
 body::after {
   content: "";
   position: fixed;
-  right: 0.5rem;
-  bottom: 0.5rem;
-  width: clamp(96px, 14vw, 168px);
-  aspect-ratio: 564 / 547;
-  background: url("https://m.doughmination.gay/img/bg/miku.png") center / contain no-repeat;
-  opacity: 0.18;
-  pointer-events: none;
+  inset: 0;
   z-index: 0;
+  pointer-events: none;
+}
+
+body::before {
+  background: url("/background.avif") center / cover no-repeat;
+  opacity: 0.5;
+}
+
+body::after {
+  background:
+    linear-gradient(rgb(11 10 13 / 55%), rgb(11 10 13 / 80%) 55%, var(--bg)),
+    radial-gradient(70% 60% at 20% 30%, rgb(235 69 158 / 12%), transparent 70%);
 }
 
 #app {
@@ -107,29 +123,45 @@ textarea {
 }
 
 a {
-  color: var(--pink);
+  color: var(--text);
+  text-decoration-color: rgb(235 69 158 / 55%);
+  text-underline-offset: 0.2em;
 }
+
+a:hover {
+  color: #fff;
+  text-decoration-color: var(--accent);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+
+/* Buttons: pills, as on the site's contact page. */
 
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.45rem 0.85rem;
-  border: 2px solid var(--surface2);
-  border-radius: 0;
-  background: var(--surface0);
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--raised);
   color: var(--text);
   cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   text-decoration: none;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
 }
 
 .btn:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-hard-sm);
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 4px var(--accent-dim);
 }
 
 .btn:disabled {
@@ -138,62 +170,117 @@ a {
 }
 
 .btn.accent {
-  background: var(--pink);
-  border-color: var(--pink);
-  color: var(--crust);
-  font-weight: 700;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn.accent:hover:not(:disabled) {
+  filter: brightness(1.12);
 }
 
 .btn.danger {
-  border-color: var(--red);
-  color: var(--red);
+  border-color: rgb(255 92 122 / 40%);
+  color: var(--danger);
+}
+
+.btn.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 4px rgb(255 92 122 / 14%);
 }
 
 .btn.icon {
-  padding: 0.35rem;
+  padding: 0.4rem;
+}
+
+/* Cards: the site's project/contact tiles. */
+
+.card {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+
+/* Small uppercase accent label (.eyebrow / .contact-name on the site). */
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.75rem;
+  gap: 0.35rem;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--subtext0);
 }
 
 .field input,
 .field select,
-.field textarea {
-  padding: 0.5rem 0.6rem;
-  background: var(--crust);
-  border: 2px solid var(--surface1);
-  border-radius: 0;
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: 0.95rem;
+.field textarea,
+.input {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 25%);
   color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .field input:focus,
 .field select:focus,
-.field textarea:focus {
+.field textarea:focus,
+.input:focus {
   outline: none;
-  border-color: var(--pink);
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 4px var(--accent-dim);
 }
 
 .muted {
-  color: var(--subtext0);
+  color: var(--muted);
 }
 
 .error {
-  color: var(--red);
+  color: var(--danger);
 }
 
 h1,
 h2,
 h3 {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }

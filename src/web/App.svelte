@@ -50,10 +50,13 @@
 {/if}
 
 <style>
+  /* Panels float over the wallpaper, like the site's cards. */
   .shell {
     display: grid;
-    grid-template-columns: 220px 360px 1fr;
+    grid-template-columns: 250px 360px 1fr;
+    gap: 0.75rem;
     height: 100%;
+    padding: 0.75rem;
     overflow: hidden;
   }
 
@@ -61,7 +64,11 @@
     min-height: 0;
   }
 
-  .empty,
+  .empty {
+    align-self: center;
+    justify-self: center;
+  }
+
   .boot {
     padding: 2rem;
   }
@@ -71,13 +78,8 @@
     .shell {
       grid-template-columns: 1fr;
       grid-template-rows: auto 1fr;
-    }
-
-    .shell > :global(.sidebar) {
-      flex-direction: row;
-      flex-wrap: wrap;
-      border-right: none;
-      border-bottom: 2px solid var(--surface1);
+      padding: 0.5rem;
+      gap: 0.5rem;
     }
 
     .shell.reading > :global(.sidebar),

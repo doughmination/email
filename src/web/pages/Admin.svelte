@@ -5,6 +5,7 @@
 <script lang="ts">
   import Globe from "@lucide/svelte/icons/globe";
   import Plus from "@lucide/svelte/icons/plus";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash from "@lucide/svelte/icons/trash";
   import type { AliasInfo, DomainInfo, UserInfo } from "../../shared/types";
   import { api } from "../lib/api";
@@ -18,12 +19,27 @@
   /** Username typed to confirm deleting that user. */
   let deleting = $state<{ username: string; typed: string } | null>(null);
 
+  let syncError = $state<string | null>(null);
+  let syncing = $state(false);
+
   async function load() {
+    syncing = true;
     try {
-      [domains, aliases, users] = await Promise.all([api.admin.domains(), api.admin.aliases(), api.admin.users()]);
+      let synced;
+      [synced, aliases, users] = await Promise.all([api.admin.domains(), api.admin.aliases(), api.admin.users()]);
+      ({ domains, syncError } = synced);
     } catch (e) {
       error = (e as Error).message;
+    } finally {
+      syncing = false;
     }
+  }
+
+  function domainState(d: DomainInfo): string {
+    if (!d.resend) return "removed from Resend";
+    if (!d.resend.receiving) return "receiving off in Resend";
+    if (!d.enabled) return "switched off here";
+    return d.resend.sending ? "receiving + sending" : "receiving only; sending off in Resend";
   }
 
   /** Runs a change, then refreshes this page and the user's own addresses. */
@@ -47,32 +63,38 @@
   {#if error}<p class="error">{error}</p>{/if}
 
   <section>
-    <h2><Globe size={16} /> Domains</h2>
+    <h2>
+      <Globe size={16} /> Domains
+      <button class="btn icon sync" title="Sync with Resend" onclick={() => act(async () => {})} disabled={syncing}>
+        <RefreshCw size={14} class={syncing ? "spin" : ""} />
+      </button>
+    </h2>
     <p class="muted">
-      Every user gets &lt;username&gt;@ on each enabled domain. Domains come from Resend; set up receiving there first.
+      Every domain in your Resend account appears here and is switched on automatically. Each user gets
+      &lt;username&gt;@ on every active domain. Add a domain in Resend and turn on receiving there; it shows up here on
+      the next sync.
     </p>
+    {#if syncError}<p class="error">{syncError}</p>{/if}
+    {#if !domains.length && !syncing}
+      <p class="muted">No domains in Resend yet.</p>
+    {/if}
     <table>
-      <thead><tr><th>Domain</th><th>Resend</th><th>Enabled</th><th>Catch-all</th></tr></thead>
+      <thead><tr><th>Domain</th><th>Status</th><th>On</th><th>Catch-all</th></tr></thead>
       <tbody>
         {#each domains as d (d.name)}
-          <tr>
+          <tr class:inactive={!d.active}>
             <td>{d.name}</td>
-            <td class="muted">
-              {#if d.resend}
-                {d.resend.status}{d.resend.receiving ? "" : " · receiving off"}{d.resend.sending ? "" : " · sending off"}
-              {:else}
-                not in Resend
-              {/if}
-            </td>
+            <td class="muted">{domainState(d)}</td>
             <td>
               <input
                 type="checkbox"
                 checked={d.enabled}
+                disabled={!d.resend}
                 onchange={(e) => act(() => api.admin.saveDomain(d.name, e.currentTarget.checked, d.catchAll))}
               />
             </td>
             <td>
-              <select
+              <select class="input"
                 value={d.catchAll ?? ""}
                 onchange={(e) => act(() => api.admin.saveDomain(d.name, d.enabled, e.currentTarget.value || null))}
               >
@@ -114,14 +136,14 @@
         });
       }}
     >
-      <input bind:value={newAlias.localPart} placeholder="ctf" required />
+      <input class="input" bind:value={newAlias.localPart} placeholder="ctf" required />
       <span>@</span>
-      <select bind:value={newAlias.domain}>
+      <select class="input" bind:value={newAlias.domain}>
         <option value="">every domain</option>
-        {#each domains.filter((d) => d.enabled) as d (d.name)}<option value={d.name}>{d.name}</option>{/each}
+        {#each domains.filter((d) => d.active) as d (d.name)}<option value={d.name}>{d.name}</option>{/each}
       </select>
       <span>→</span>
-      <select bind:value={newAlias.username} required>
+      <select class="input" bind:value={newAlias.username} required>
         <option value="" disabled>user</option>
         {#each users as u (u.username)}<option value={u.username}>{u.username}</option>{/each}
       </select>
@@ -170,7 +192,7 @@
           {users.find((u) => u.username === target.username)?.messageCount ?? 0} of their messages. Type their username
           to confirm.
         </p>
-        <input bind:value={target.typed} />
+        <input class="input" bind:value={target.typed} />
         <button
           class="btn danger"
           disabled={target.typed !== target.username}
@@ -189,21 +211,25 @@
 <style>
   .page {
     grid-column: 2 / -1;
-    padding: 1.5rem;
     overflow-y: auto;
+    padding: 0.5rem 0.25rem;
   }
 
   h1 {
-    font-size: 1.1rem;
+    margin: 0.5rem 0 1.25rem;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
   }
 
   section {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
     max-width: 900px;
-    background: var(--mantle);
-    border: 2px solid var(--surface1);
-    box-shadow: var(--shadow-hard);
+    margin-bottom: 1rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
     overflow-x: auto;
   }
 
@@ -211,8 +237,16 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    margin-top: 0;
-    font-size: 0.9rem;
+    margin: 0 0 0.5rem;
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .sync {
+    margin-left: auto;
   }
 
   table {
@@ -223,29 +257,35 @@
 
   th,
   td {
-    padding: 0.4rem 0.5rem;
-    border-bottom: 1px solid var(--surface1);
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--line);
     text-align: left;
     vertical-align: top;
   }
 
+  tr:last-child td {
+    border-bottom: none;
+  }
+
   th {
-    color: var(--subtext0);
-    font-weight: 400;
+    color: var(--muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
+  }
+
+  tr.inactive td:first-child {
+    color: var(--muted);
+    text-decoration: line-through;
   }
 
   .small {
     font-size: 0.75rem;
   }
 
-  input:not([type="checkbox"]),
-  select {
-    padding: 0.35rem 0.5rem;
-    background: var(--crust);
-    border: 2px solid var(--surface1);
+  input[type="checkbox"] {
+    accent-color: var(--accent);
   }
 
   .row {
@@ -253,12 +293,14 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.4rem;
-    margin-top: 0.75rem;
+    margin-top: 0.9rem;
   }
 
   .confirm {
     margin-top: 1rem;
-    padding: 0.75rem;
-    border: 2px solid var(--red);
+    padding: 1rem 1.25rem;
+    border: 1px solid rgb(255 92 122 / 40%);
+    border-radius: var(--radius-sm);
+    background: rgb(255 92 122 / 6%);
   }
 </style>

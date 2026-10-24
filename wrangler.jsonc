@@ -35,7 +35,8 @@
 		}
 	],
 	"triggers": {
-		// Sweeps expired sessions and uploads that never made it into a message.
+		// Sweeps expired sessions and uploads that never made it into a message,
+		// and re-syncs the domain list from Resend.
 		"crons": [
 			"17 4 * * *"
 		]

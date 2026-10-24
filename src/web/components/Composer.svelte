@@ -155,20 +155,25 @@
     display: grid;
     place-items: center;
     padding: 1rem;
-    background: rgba(5, 6, 10, 0.7);
+    background: rgb(11 10 13 / 70%);
+    backdrop-filter: blur(6px);
   }
 
+  /* The site's featured contact card: accent border, soft ring. */
   .composer {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.9rem;
     width: min(720px, 100%);
     max-height: 100%;
     overflow-y: auto;
-    padding: 1.25rem;
-    background: var(--mantle);
-    border: 2px solid var(--surface2);
-    box-shadow: var(--shadow-hard);
+    padding: 1.5rem;
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius);
+    background:
+      radial-gradient(80% 120% at 0% 0%, rgb(235 69 158 / 12%), transparent 70%),
+      #131116;
+    box-shadow: 0 0 0 4px var(--accent-dim);
   }
 
   header {
@@ -179,7 +184,8 @@
 
   h2 {
     margin: 0;
-    font-size: 1rem;
+    font-size: 1.15rem;
+    font-weight: 700;
   }
 
   textarea {
@@ -199,23 +205,15 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.2rem 0.2rem 0.2rem 0.5rem;
-    border: 1px solid var(--surface2);
+    padding: 0.15rem 0.2rem 0.15rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--raised);
   }
 
   footer {
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
-  }
-
-  :global(.spin) {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 </style>

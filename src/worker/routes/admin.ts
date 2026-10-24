@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import type { AliasInfo, DomainInfo, UserInfo } from "../../shared/types";
+import type { AliasInfo, UserInfo } from "../../shared/types";
 import { addressesOf } from "../lib/routing";
 import { requireAdmin, type AppEnv } from "../middleware";
 import { purgeObjects } from "../services/attachments";
 import { loadDirectory } from "../services/directory";
+import { listDomains, syncDomains } from "../services/domains";
 import { deleteAllFor } from "../services/messages";
-import { resend } from "../services/resend";
 
 const domainName = z
   .string()
@@ -24,41 +24,20 @@ const ANY = "*";
 export const admin = new Hono<AppEnv>()
   .use(requireAdmin)
 
-  /** Domains enabled here, merged with what Resend reports so new ones can be switched on. */
+  /**
+   * Resend's domains, synced fresh on every load so a domain added there
+   * shows up here (switched on) without any other step. If Resend can't be
+   * reached, the last synced list is still returned.
+   */
   .get("/domains", async (c) => {
-    const [{ results }, remote] = await Promise.all([
-      c.env.DB.prepare("SELECT name, enabled, catch_all FROM domains ORDER BY name").all<{
-        name: string;
-        enabled: number;
-        catch_all: string | null;
-      }>(),
-      resend(c.env)
-        .domains.list()
-        .catch((err: unknown) => ({ data: null, error: err })),
-    ]);
-    const byName = new Map<string, DomainInfo>();
-    for (const d of remote.data?.data ?? []) {
-      byName.set(d.name.toLowerCase(), {
-        name: d.name.toLowerCase(),
-        enabled: false,
-        catchAll: null,
-        resend: {
-          status: d.status,
-          sending: d.capabilities?.sending === "enabled",
-          receiving: d.capabilities?.receiving === "enabled",
-        },
-      });
+    let syncError: string | null = null;
+    try {
+      await syncDomains(c.env);
+    } catch (err) {
+      console.error("Domain sync failed", err);
+      syncError = "Couldn't reach Resend; showing the last synced list.";
     }
-    for (const row of results) {
-      const known = byName.get(row.name);
-      byName.set(row.name, {
-        name: row.name,
-        enabled: row.enabled === 1,
-        catchAll: row.catch_all,
-        resend: known?.resend ?? null,
-      });
-    }
-    return c.json([...byName.values()].sort((a, b) => a.name.localeCompare(b.name)));
+    return c.json({ domains: await listDomains(c.env), syncError });
   })
 
   .put(
@@ -68,28 +47,20 @@ export const admin = new Hono<AppEnv>()
     async (c) => {
       const { name } = c.req.valid("param");
       const { enabled, catchAll } = c.req.valid("json");
+      let changes = 0;
       try {
-        await c.env.DB.prepare(
-          "INSERT INTO domains (name, enabled, catch_all, created_at) VALUES (?, ?, ?, ?) " +
-            "ON CONFLICT (name) DO UPDATE SET enabled = excluded.enabled, catch_all = excluded.catch_all",
-        )
-          .bind(name, enabled ? 1 : 0, catchAll || null, Date.now())
-          .run();
+        changes = (
+          await c.env.DB.prepare("UPDATE domains SET enabled = ?, catch_all = ? WHERE name = ?")
+            .bind(enabled ? 1 : 0, catchAll || null, name)
+            .run()
+        ).meta.changes;
       } catch {
         return c.json({ error: `There's no user called ${catchAll}.` }, 400);
       }
-      return c.json({ ok: true });
+      // Domains only come from Resend, so there's nothing to create here.
+      return changes ? c.json({ ok: true }) : c.json({ error: `${name} isn't a Resend domain.` }, 404);
     },
   )
-
-  .delete("/domains/:name", async (c) => {
-    // Aliases pinned to the domain go too; mail already received stays.
-    await c.env.DB.batch([
-      c.env.DB.prepare("DELETE FROM aliases WHERE domain = ?").bind(c.req.param("name")),
-      c.env.DB.prepare("DELETE FROM domains WHERE name = ?").bind(c.req.param("name")),
-    ]);
-    return c.json({ ok: true });
-  })
 
   .get("/aliases", async (c) => {
     const { results } = await c.env.DB.prepare(

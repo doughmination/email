@@ -6,7 +6,7 @@ import type { TokenSet } from "./oidc";
 // apply everywhere at once. Both tables stay tiny.
 export async function loadDirectory(env: Env): Promise<Directory> {
   const [domains, aliases] = await env.DB.batch([
-    env.DB.prepare("SELECT name, catch_all FROM domains WHERE enabled = 1"),
+    env.DB.prepare("SELECT name, catch_all FROM domains WHERE enabled = 1 AND receiving = 1"),
     env.DB.prepare("SELECT local_part, domain, username FROM aliases"),
   ]);
   return buildDirectory((domains?.results ?? []) as DomainRow[], (aliases?.results ?? []) as AliasRow[]);

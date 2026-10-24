@@ -68,8 +68,12 @@ beforeAll(async () => {
   clove = await signIn("clove", true);
   ari = await signIn("ari");
   await env.DB.batch([
-    env.DB.prepare("INSERT INTO domains (name, enabled, catch_all, created_at) VALUES ('doughmination.gay', 1, 'clove', 0)"),
-    env.DB.prepare("INSERT INTO domains (name, enabled, catch_all, created_at) VALUES ('doughmination.win', 1, NULL, 0)"),
+    env.DB.prepare(
+      "INSERT INTO domains (name, enabled, catch_all, created_at, receiving) VALUES ('doughmination.gay', 1, 'clove', 0, 1)",
+    ),
+    env.DB.prepare(
+      "INSERT INTO domains (name, enabled, catch_all, created_at, receiving) VALUES ('doughmination.win', 1, NULL, 0, 1)",
+    ),
     env.DB.prepare("INSERT INTO aliases (local_part, domain, username, created_at) VALUES ('ctf', '', 'clove', 0)"),
   ]);
 });

@@ -23,7 +23,8 @@ test/                  vitest, running inside workerd with local D1 + R2
 - **D1** (`DB`) holds users, domains, aliases, threads, messages, sessions.
 - **R2** (`BUCKET`) holds attachment bytes under `inbox/`. It's the same bucket the
   old proxy used.
-- **Routing**: on an enabled domain, mail to `x@domain` goes to the alias `x` if
+- **Domains** are synced from Resend into D1 (`services/domains.ts`), never typed in.
+- **Routing**: on an active domain, mail to `x@domain` goes to the alias `x` if
   there is one, otherwise to user `x`, otherwise to that domain's catch-all,
   otherwise nowhere. You can send from exactly the addresses whose mail reaches
   you. An email addressed to several users is stored once in each mailbox.
@@ -59,10 +60,12 @@ npm run deploy
 
 Then:
 
-1. In Resend, point the `email.received` webhook at `https://<host>/webhook/inbound`.
-2. In Admin → Domains, switch on each Resend domain the inbox should handle, and
-   pick a catch-all if you want one. A new domain needs receiving set up in
-   Resend first.
+1. In Resend, point a webhook at `https://<host>/webhook/inbound` for
+   `email.received`, plus `domain.created`, `domain.updated` and `domain.deleted`.
+2. That's it for domains. They come from your Resend account: every domain there
+   is switched on automatically, and it routes mail once receiving is on in
+   Resend. The list re-syncs on those webhooks, daily, and whenever Admin →
+   Domains is opened. That page is where you switch one off or pick a catch-all.
 
 ## Scripts
 
