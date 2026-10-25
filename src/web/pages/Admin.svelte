@@ -85,14 +85,14 @@
     {#if !domains.length && !syncing}
       <p class="muted">No domains in Resend yet.</p>
     {/if}
-    <table>
+    <table class="cards">
       <thead><tr><th>Domain</th><th>Status</th><th>On</th><th>Catch-all</th></tr></thead>
       <tbody>
         {#each domains as d (d.name)}
           <tr class:inactive={!d.active}>
-            <td>{d.name}</td>
+            <td class="title">{d.name}</td>
             <td class="muted">{domainState(d)}</td>
-            <td>
+            <td data-label="On">
               <input
                 type="checkbox"
                 checked={d.enabled}
@@ -100,7 +100,7 @@
                 onchange={(e) => act(() => api.admin.saveDomain(d.name, e.currentTarget.checked, d.catchAll))}
               />
             </td>
-            <td>
+            <td data-label="Catch-all">
               <select class="input"
                 value={d.catchAll ?? ""}
                 onchange={(e) => act(() => api.admin.saveDomain(d.name, d.enabled, e.currentTarget.value || null))}
@@ -118,7 +118,7 @@
   <section>
     <h2>Aliases</h2>
     <p class="muted">Extra addresses for a user. An alias on "every domain" applies to all enabled ones.</p>
-    <table>
+    <table class="aliases">
       <tbody>
         {#each aliases as a (`${a.localPart}@${a.domain}`)}
           <tr>
@@ -143,14 +143,14 @@
         });
       }}
     >
-      <input class="input" bind:value={newAlias.localPart} placeholder="ctf" required />
+      <input class="input local" bind:value={newAlias.localPart} placeholder="ctf" required />
       <span>@</span>
-      <select class="input" bind:value={newAlias.domain}>
+      <select class="input domain" bind:value={newAlias.domain}>
         <option value="">every domain</option>
         {#each domains.filter((d) => d.active) as d (d.name)}<option value={d.name}>{d.name}</option>{/each}
       </select>
       <span>→</span>
-      <select class="input" bind:value={newAlias.username} required>
+      <select class="input user" bind:value={newAlias.username} required>
         <option value="" disabled>user</option>
         {#each users as u (u.username)}<option value={u.username}>{u.name ? `${u.name} (${u.username})` : u.username}</option>{/each}
       </select>
@@ -161,17 +161,17 @@
   <section>
     <h2>Users</h2>
     <p class="muted">Anyone the SSO lets in appears here after their first sign-in.</p>
-    <table>
+    <table class="cards">
       <thead><tr><th>User</th><th>Mail</th><th>Admin</th><th></th></tr></thead>
       <tbody>
         {#each users as u (u.username)}
           <tr>
-            <td>
+            <td class="title">
               {#if u.name}<strong>{u.name}</strong> <span class="muted">({u.username})</span>{:else}{u.username}{/if}
               <div class="muted small">{u.addresses.join(", ")}</div>
             </td>
-            <td>{u.messageCount}</td>
-            <td>
+            <td data-label="Mail">{u.messageCount}</td>
+            <td data-label="Admin">
               <input
                 type="checkbox"
                 checked={u.isAdmin}
@@ -179,7 +179,7 @@
                 onchange={(e) => act(() => api.admin.setAdmin(u.username, e.currentTarget.checked))}
               />
             </td>
-            <td>
+            <td class="corner">
               {#if u.username !== session.me?.username}
                 <button class="btn icon danger" title="Delete user" onclick={() => (deleting = { username: u.username, typed: "" })}>
                   <Trash size={14} />
@@ -199,7 +199,7 @@
           {users.find((u) => u.username === target.username)?.messageCount ?? 0} of their messages. Type their username
           to confirm.
         </p>
-        <input class="input" bind:value={target.typed} />
+        <input class="input" bind:value={target.typed} aria-label="Username to delete" />
         <button
           class="btn danger"
           disabled={target.typed !== target.username}
@@ -309,5 +309,144 @@
     border: 1px solid rgb(255 92 122 / 40%);
     border-radius: var(--radius-sm);
     background: rgb(255 92 122 / 6%);
+  }
+
+  .confirm .input {
+    margin-right: 0.25rem;
+  }
+
+  /* Phones: the app bar names the page; tables become stacked cards. */
+  @media (max-width: 800px) {
+    .page {
+      grid-column: 1 / -1;
+      padding: 0 0.75rem 2rem;
+    }
+
+    h1 {
+      display: none;
+    }
+
+    section {
+      padding: 1rem;
+      overflow-x: visible;
+    }
+
+    .cards thead {
+      display: none;
+    }
+
+    .cards,
+    .cards tbody,
+    .cards td {
+      display: block;
+    }
+
+    .cards tr {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 1rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .cards tr:last-child {
+      border-bottom: none;
+    }
+
+    .cards td {
+      padding: 0;
+      border: none;
+    }
+
+    .cards td.title,
+    .cards td.muted {
+      flex-basis: 100%;
+    }
+
+    .cards td.title {
+      padding-right: 2.5rem;
+      font-size: 0.95rem;
+      overflow-wrap: anywhere;
+    }
+
+    .cards td[data-label] {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .cards td[data-label]::before {
+      content: attr(data-label);
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .cards td[data-label="Catch-all"] {
+      flex: 1 1 100%;
+    }
+
+    .cards td[data-label="Catch-all"] select {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cards td.corner {
+      position: absolute;
+      top: 0.6rem;
+      right: 0;
+    }
+
+    input[type="checkbox"] {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+
+    .aliases td {
+      padding-inline: 0.25rem;
+      overflow-wrap: anywhere;
+    }
+
+    .aliases td:last-child {
+      width: 1%;
+    }
+
+    /* Alias form: name @ domain on one line, then user and Add. */
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.4fr);
+    }
+
+    .row .user {
+      grid-column: span 3;
+    }
+
+    .row > span:nth-of-type(2) {
+      display: none;
+    }
+
+    .row .btn {
+      grid-column: span 3;
+      justify-content: center;
+    }
+
+    .confirm {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .confirm p {
+      margin: 0;
+    }
+
+    .confirm .input {
+      flex-basis: 100%;
+      margin: 0;
+    }
   }
 </style>

@@ -93,8 +93,10 @@
       <p class="muted">Push isn't configured on the server.</p>
     {:else if subscription}
       <p>On for this device.</p>
-      <button class="btn" onclick={test}>Send a test</button>
-      <button class="btn danger" onclick={disable}>Turn off</button>
+      <div class="buttons">
+        <button class="btn" onclick={test}>Send a test</button>
+        <button class="btn danger" onclick={disable}>Turn off</button>
+      </div>
     {:else}
       <button class="btn accent" onclick={enable}>Turn on for this device</button>
     {/if}
@@ -150,5 +152,31 @@
   .name input {
     flex: 1;
     min-width: 0;
+  }
+
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  ul li {
+    overflow-wrap: anywhere;
+  }
+
+  /* Phones: the app bar names the page; cards run edge to edge of the gutter. */
+  @media (max-width: 800px) {
+    .page {
+      grid-column: 1 / -1;
+      padding: 0 0.75rem 2rem;
+    }
+
+    h1 {
+      display: none;
+    }
+
+    section {
+      padding: 1rem;
+    }
   }
 </style>
