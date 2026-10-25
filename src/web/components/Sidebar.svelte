@@ -17,6 +17,9 @@
   import { router } from "../lib/router.svelte";
   import { composeNew, session } from "../lib/state.svelte";
 
+  /** Phones: whether the drawer is out. Ignored on wider screens. */
+  let { open = false, onclose = () => {} }: { open?: boolean; onclose?: () => void } = $props();
+
   const folders: { folder: ListFolder; label: string; icon: typeof InboxIcon }[] = [
     { folder: "inbox", label: "Inbox", icon: InboxIcon },
     { folder: "sent", label: "Sent", icon: Send },
@@ -53,8 +56,12 @@
   }
 </script>
 
-<nav class="sidebar">
-  <button class="btn accent compose" onclick={composeNew}><SquarePen size={16} /> New message</button>
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div class="scrim" class:open onclick={onclose}></div>
+
+<nav class="sidebar" class:open>
+  <p class="brand eyebrow">Mail</p>
+  <button class="btn accent compose" onclick={() => (onclose(), composeNew())}><SquarePen size={16} /> New message</button>
 
   <ul class="folders">
     {#each folders as f (f.folder)}
@@ -96,22 +103,6 @@
         </li>
       {/each}
     </ul>
-  {/if}
-
-  {#if byDomain.length > 1 || (byDomain[0]?.[1].length ?? 0) > 1}
-    <!-- Phones get the mailbox tree as a dropdown. -->
-    <select
-      class="input mailbox-picker"
-      aria-label="Mailbox"
-      value={router.mailbox ?? ""}
-      onchange={(e) => router.go(folderHref(current ?? "inbox", e.currentTarget.value || null))}
-    >
-      <option value="">All mailboxes</option>
-      {#each byDomain as [domain, addresses] (domain)}
-        <option value="@{domain}">{domain}</option>
-        {#each addresses as addr (addr)}<option value={addr}>&nbsp;&nbsp;{addr}</option>{/each}
-      {/each}
-    </select>
   {/if}
 
   <ul class="bottom">
@@ -211,50 +202,63 @@
   .bottom {
     margin-top: auto;
   }
-  .mailbox-picker {
+  .brand,
+  .scrim {
     display: none;
   }
 
-  /* Phones: one scrollable row of folders, with mailboxes as a dropdown. */
+  /* Phones: a drawer that slides in from the left, as in Gmail. The compose
+     button lives on the list as a floating button instead. */
   @media (max-width: 800px) {
     .sidebar {
-      flex-direction: row;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.5rem;
-      overflow-x: auto;
-      overflow-y: hidden;
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 30;
+      width: min(80vw, 300px);
+      padding: calc(1rem + env(safe-area-inset-top)) 0.75rem calc(1rem + env(safe-area-inset-bottom));
+      border-width: 0 1px 0 0;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: #131116;
+      transform: translateX(-105%);
+      visibility: hidden;
+      transition:
+        transform 0.2s ease,
+        visibility 0s linear 0.2s;
+    }
+
+    .sidebar.open {
+      transform: none;
+      visibility: visible;
+      transition: transform 0.2s ease;
+    }
+
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 29;
+      display: block;
+      background: rgb(0 0 0 / 55%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .scrim.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .brand {
+      display: block;
+      margin: 0 0 0.25rem 0.75rem;
     }
 
     .compose {
-      flex-shrink: 0;
-      margin: 0;
-    }
-
-    .folders,
-    .bottom {
-      display: flex;
-      flex-shrink: 0;
-      margin: 0;
-    }
-
-    .mailboxes-title,
-    .mailboxes,
-    .bottom .label {
       display: none;
     }
 
-    .mailbox-picker {
-      display: block;
-      flex-shrink: 0;
-      max-width: 11rem;
-      padding-block: 0.35rem;
-      font-size: 0.85rem;
-    }
-
     .item {
-      width: auto;
-      white-space: nowrap;
+      padding-block: 0.6rem;
     }
   }
 </style>

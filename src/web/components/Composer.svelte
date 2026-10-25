@@ -229,4 +229,41 @@
     justify-content: flex-end;
     gap: 0.5rem;
   }
+
+  /* Phones: full screen, as Gmail's compose is, with the buttons kept in reach. */
+  @media (max-width: 800px) {
+    .backdrop {
+      padding: 0;
+    }
+
+    .composer {
+      width: 100%;
+      height: 100%;
+      padding: calc(0.75rem + env(safe-area-inset-top)) 1rem 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .grow {
+      flex: 1;
+    }
+
+    .grow textarea {
+      flex: 1;
+    }
+
+    footer {
+      position: sticky;
+      bottom: 0;
+      margin: 0 -1rem;
+      padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line);
+      background: #131116;
+    }
+
+    footer .btn[type="submit"] {
+      margin-left: auto;
+    }
+  }
 </style>

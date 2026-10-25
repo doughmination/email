@@ -154,7 +154,28 @@
 <svelte:window {onkeydown} />
 
 <article class="view">
-  <button class="btn back" onclick={() => router.thread(null)}><ArrowLeft size={14} /> Back</button>
+  <!-- Phones: back arrow on the left, icon actions on the right. -->
+  <div class="topbar">
+    <button class="tb" aria-label="Back" onclick={() => router.thread(null)}><ArrowLeft size={20} /></button>
+    {#if thread && bin}
+      <button class="tb" aria-label="Restore" title="Restore" onclick={restoreThread}><ArchiveRestore size={20} /></button>
+      <button
+        class="tb"
+        class:armed={confirming === "thread"}
+        aria-label="Delete forever"
+        title={confirming === "thread" ? "Press again to delete forever" : "Delete forever"}
+        onclick={removeThread}
+      >
+        <Trash size={20} />
+      </button>
+    {:else if thread && last}
+      <button class="tb" aria-label="Move to Bin" title="Move to Bin" onclick={removeThread}><Trash size={20} /></button>
+      {#if hasInbound}
+        <button class="tb" aria-label="Mark unread" title="Mark unread" onclick={markUnread}><MailOpen size={20} /></button>
+      {/if}
+    {/if}
+  </div>
+  {#if bin && confirming === "thread"}<p class="armed-note error">Tap the bin again to delete forever.</p>{/if}
 
   {#if error}
     <p class="error">{error}</p>
@@ -257,6 +278,13 @@
         {/if}
       </section>
     {/each}
+
+    {#if !bin && last}
+      <div class="replies">
+        <button class="btn" onclick={() => composeReply(last)}><Reply size={16} /> Reply</button>
+        <button class="btn" onclick={() => composeForward(last)}><Forward size={16} /> Forward</button>
+      </div>
+    {/if}
   {/if}
 </article>
 
@@ -266,9 +294,10 @@
     padding-right: 0.25rem;
   }
 
-  .back {
+  .topbar,
+  .armed-note,
+  .replies {
     display: none;
-    margin-bottom: 1rem;
   }
 
   h2 {
@@ -434,9 +463,92 @@
     transform: rotate(180deg);
   }
 
+  /* Phones: full-bleed like Gmail's app, with flatter message cards. */
   @media (max-width: 800px) {
-    .back {
-      display: inline-flex;
+    .view {
+      padding: 0 0 2rem;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.25rem;
+      padding: calc(0.4rem + env(safe-area-inset-top)) 0.5rem 0.4rem;
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+    }
+
+    .tb {
+      display: grid;
+      place-items: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: none;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .tb:first-child {
+      margin-right: auto;
+    }
+
+    .tb:hover {
+      background: var(--raised-hover);
+    }
+
+    .tb.armed {
+      background: rgb(255 92 122 / 14%);
+      color: var(--danger);
+    }
+
+    .armed-note {
+      display: block;
+      margin: 0.5rem 1rem 0;
+      font-size: 0.85rem;
+    }
+
+    .actions {
+      display: none;
+    }
+
+    h2 {
+      margin: 0.75rem 1rem 1rem;
+      font-size: 1.3rem;
+      font-weight: 500;
+    }
+
+    .message {
+      margin: 0 0 0.5rem;
+      padding: 1rem;
+      border-width: 1px 0;
+      border-radius: 0;
+    }
+
+    .message.collapsed {
+      padding-block: 0.75rem;
+    }
+
+    .right time {
+      font-size: 0.75rem;
+    }
+
+    .replies {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1rem;
+    }
+
+    .replies .btn {
+      flex: 1;
+      justify-content: center;
+      padding-block: 0.65rem;
+      font-size: 0.95rem;
     }
   }
 </style>

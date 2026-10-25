@@ -69,6 +69,15 @@
     // The Bin mixes folders; whoever it's from reads best there.
     return folder === "inbox" || folder === "bin" ? displayName(t.from) : `To: ${t.to.map(displayName).join(", ") || "(nobody yet)"}`;
   }
+
+  /** Phones show a coloured initial beside each row, as Gmail does. */
+  function avatar(t: ThreadSummary) {
+    const name = folder === "inbox" || folder === "bin" ? displayName(t.from) : displayName(t.to[0] ?? "?");
+    const letter = name.match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase() ?? "?";
+    let hue = 0;
+    for (const c of name) hue = (hue * 31 + c.charCodeAt(0)) % 360;
+    return { letter, hue };
+  }
 </script>
 
 <section class="list">
@@ -89,6 +98,7 @@
 
   <ul>
     {#each items as t (t.id)}
+      {@const a = avatar(t)}
       <li>
         <a
           href={router.href(`/${folder}/${t.id}${router.search}`)}
@@ -96,6 +106,7 @@
           class:selected={selected === t.id}
           class:unread={t.unread > 0}
         >
+          <span class="avatar" style:--hue={a.hue} aria-hidden="true">{a.letter}</span>
           <div class="top">
             <span class="who">{who(t)}</span>
             {#if t.count > 1}<span class="n">{t.count}</span>{/if}
@@ -220,6 +231,81 @@
 
   .more {
     margin: 1rem;
+  }
+
+  .avatar {
+    display: none;
+  }
+
+  /* Phones: flat full-width rows with an avatar, as in Gmail's app. */
+  @media (max-width: 800px) {
+    .list {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      backdrop-filter: none;
+      padding-bottom: 6rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 2.5rem minmax(0, 1fr);
+      column-gap: 0.85rem;
+      margin: 0 0.5rem;
+      padding: 0.65rem 0.6rem;
+      border-bottom: none;
+      border-radius: var(--radius);
+    }
+
+    .row > :not(.avatar) {
+      grid-column: 2;
+    }
+
+    .avatar {
+      display: grid;
+      grid-row: 1 / span 3;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      margin-top: 0.15rem;
+      border-radius: 50%;
+      background: hsl(var(--hue) 55% 42%);
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .row.selected {
+      box-shadow: none;
+    }
+
+    .top {
+      font-size: 0.95rem;
+    }
+
+    .row.unread .who::before {
+      display: none;
+    }
+
+    .row.unread time {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .subject {
+      margin-top: 0;
+      font-size: 0.9rem;
+    }
+
+    .snippet {
+      font-size: 0.85rem;
+    }
+
+    .bin-bar {
+      margin: 0 0.75rem 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
   }
 
   .bin-bar {
