@@ -3,12 +3,22 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
+  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
+  import CircleX from "@lucide/svelte/icons/circle-x";
+  import Eye from "@lucide/svelte/icons/eye";
+  import Mail from "@lucide/svelte/icons/mail";
+  import MailOpen from "@lucide/svelte/icons/mail-open";
   import Paperclip from "@lucide/svelte/icons/paperclip";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import { flip } from "svelte/animate";
+  import { fly, slide } from "svelte/transition";
   import type { ListFolder, ThreadSummary } from "../../shared/types";
   import { api } from "../lib/api";
   import { displayName, fmtTime } from "../lib/format";
   import { router } from "../lib/router.svelte";
   import { changed, session } from "../lib/state.svelte";
+  import ActionMenu, { type MenuItem } from "./ActionMenu.svelte";
+  import SwipeRow, { type HoldPoint, type SwipeAction } from "./SwipeRow.svelte";
 
   let { folder, selected }: { folder: ListFolder; selected: string | null } = $props();
 
@@ -65,6 +75,163 @@
     }
   }
 
+  // Rows taken out by a swipe or the menu collapse; a reload just swaps them.
+  const collapsing = new Set<string>();
+
+  let menu = $state<{
+    thread: ThreadSummary;
+    at: HoldPoint;
+  } | null>(null);
+
+  let undo = $state<{
+    thread: ThreadSummary;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+
+  function fail(e: unknown) {
+    error = (e as Error).message;
+    changed();
+  }
+
+  async function toggleRead(thread: ThreadSummary) {
+    const read = thread.unread > 0;
+    thread.unread = read ? 0 : 1;
+    try {
+      changed((await api.markThread(thread.id, read)).unread);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  function takeOut(thread: ThreadSummary) {
+    collapsing.add(thread.id);
+    items = items.filter((item) => item.id !== thread.id);
+    if (selected === thread.id) router.thread(null);
+  }
+
+  async function moveToBin(thread: ThreadSummary) {
+    takeOut(thread);
+    try {
+      await api.deleteThread(thread.id);
+      changed();
+      if (undo) clearTimeout(undo.timer);
+      undo = {
+        thread,
+        timer: setTimeout(() => (undo = null), 5000),
+      };
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  async function undoBin() {
+    if (!undo) return;
+    const { thread, timer } = undo;
+    clearTimeout(timer);
+    undo = null;
+    try {
+      await api.restoreThread(thread.id);
+      changed();
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  async function restore(thread: ThreadSummary) {
+    takeOut(thread);
+    try {
+      await api.restoreThread(thread.id);
+      changed();
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  async function deleteForever(thread: ThreadSummary) {
+    takeOut(thread);
+    try {
+      await api.deleteThread(thread.id, true);
+      changed();
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  function swipeRight(thread: ThreadSummary): SwipeAction | undefined {
+    if (folder === "bin") {
+      return {
+        label: "Restore",
+        icon: ArchiveRestore,
+        tone: "accent",
+        dismiss: true,
+        run: () => restore(thread),
+      };
+    }
+    if (folder !== "inbox") return undefined;
+    return {
+      label: thread.unread ? "Read" : "Unread",
+      icon: thread.unread ? MailOpen : Mail,
+      tone: "accent",
+      dismiss: false,
+      run: () => toggleRead(thread),
+    };
+  }
+
+  function swipeLeft(thread: ThreadSummary): SwipeAction | undefined {
+    if (folder === "bin") return undefined;
+    return {
+      label: "Bin",
+      icon: Trash2,
+      tone: "danger",
+      dismiss: true,
+      run: () => moveToBin(thread),
+    };
+  }
+
+  function menuItems(thread: ThreadSummary): MenuItem[] {
+    const open: MenuItem = {
+      label: "Open",
+      icon: Eye,
+      run: () => router.thread(thread.id),
+    };
+    if (folder === "bin") {
+      return [
+        open,
+        {
+          label: "Restore",
+          icon: ArchiveRestore,
+          run: () => restore(thread),
+        },
+        {
+          label: "Delete forever",
+          icon: CircleX,
+          danger: true,
+          confirm: "Tap again to delete forever",
+          run: () => deleteForever(thread),
+        },
+      ];
+    }
+    const readToggle: MenuItem[] = folder === "inbox"
+      ? [
+          {
+            label: thread.unread ? "Mark as read" : "Mark as unread",
+            icon: thread.unread ? MailOpen : Mail,
+            run: () => toggleRead(thread),
+          },
+        ]
+      : [];
+    return [
+      open,
+      ...readToggle,
+      {
+        label: "Move to Bin",
+        icon: Trash2,
+        danger: true,
+        run: () => moveToBin(thread),
+      },
+    ];
+  }
+
   function who(t: ThreadSummary) {
     // The Bin mixes folders; whoever it's from reads best there.
     return folder === "inbox" || folder === "bin" ? displayName(t.from) : `To: ${t.to.map(displayName).join(", ") || "(nobody yet)"}`;
@@ -99,23 +266,33 @@
   <ul>
     {#each items as t (t.id)}
       {@const a = avatar(t)}
-      <li>
-        <a
-          href={router.href(`/${folder}/${t.id}${router.search}`)}
-          class="row"
-          class:selected={selected === t.id}
-          class:unread={t.unread > 0}
+      <li
+        animate:flip={{ duration: 180 }}
+        out:slide={{ duration: collapsing.delete(t.id) ? 180 : 0 }}
+      >
+        <SwipeRow
+          swipeRight={swipeRight(t)}
+          swipeLeft={swipeLeft(t)}
+          onhold={(at) => (menu = { thread: t, at })}
         >
-          <span class="avatar" style:--hue={a.hue} aria-hidden="true">{a.letter}</span>
-          <div class="top">
-            <span class="who">{who(t)}</span>
-            {#if t.count > 1}<span class="n">{t.count}</span>{/if}
-            {#if t.hasAttachments}<Paperclip size={12} />{/if}
-            <time>{fmtTime(t.lastAt)}</time>
-          </div>
-          <div class="subject">{t.subject || "(no subject)"}</div>
-          <div class="snippet">{t.snippet}</div>
-        </a>
+          <a
+            href={router.href(`/${folder}/${t.id}${router.search}`)}
+            class="row"
+            class:selected={selected === t.id}
+            class:unread={t.unread > 0}
+            draggable="false"
+          >
+            <span class="avatar" style:--hue={a.hue} aria-hidden="true">{a.letter}</span>
+            <div class="top">
+              <span class="who">{who(t)}</span>
+              {#if t.count > 1}<span class="n">{t.count}</span>{/if}
+              {#if t.hasAttachments}<Paperclip size={12} />{/if}
+              <time>{fmtTime(t.lastAt)}</time>
+            </div>
+            <div class="subject">{t.subject || "(no subject)"}</div>
+            <div class="snippet">{t.snippet}</div>
+          </a>
+        </SwipeRow>
       </li>
     {/each}
   </ul>
@@ -124,6 +301,22 @@
     <button class="btn more" onclick={more} disabled={loading}>Load more</button>
   {/if}
 </section>
+
+{#if menu}
+  <ActionMenu
+    title={menu.thread.subject || "(no subject)"}
+    items={menuItems(menu.thread)}
+    at={menu.at}
+    onclose={() => (menu = null)}
+  />
+{/if}
+
+{#if undo}
+  <div class="toast" role="status" transition:fly={{ y: 16, duration: 160 }}>
+    <span>Moved to Bin</span>
+    <button class="undo" onclick={undoBin}>Undo</button>
+  </div>
+{/if}
 
 <style>
   .list {
@@ -247,11 +440,14 @@
       padding-bottom: 6rem;
     }
 
+    li {
+      margin: 0 0.5rem;
+    }
+
     .row {
       display: grid;
       grid-template-columns: 2.5rem minmax(0, 1fr);
       column-gap: 0.85rem;
-      margin: 0 0.5rem;
       padding: 0.65rem 0.6rem;
       border-bottom: none;
       border-radius: var(--radius);
@@ -301,11 +497,49 @@
       font-size: 0.85rem;
     }
 
+    .toast {
+      right: auto;
+      bottom: calc(5.5rem + env(safe-area-inset-bottom));
+      left: 0.75rem;
+      transform: none;
+    }
+
     .bin-bar {
       margin: 0 0.75rem 0.5rem;
       border: 1px solid var(--line);
       border-radius: var(--radius);
     }
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    z-index: 25;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.5rem 0.5rem 1rem;
+    transform: translateX(-50%);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgb(22 19 26 / 96%);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 45%);
+    font-size: 0.9rem;
+  }
+
+  .undo {
+    padding: 0.35rem 0.85rem;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .undo:hover {
+    background: var(--accent-dim);
   }
 
   .bin-bar {

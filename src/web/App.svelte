@@ -10,6 +10,7 @@
   import ThreadList from "./components/ThreadList.svelte";
   import ThreadView from "./components/ThreadView.svelte";
   import { startLive } from "./lib/live";
+  import { hideSplash } from "./lib/splash";
   import { isDemo, router } from "./lib/router.svelte";
   import { composeNew, composer, loadSession, session } from "./lib/state.svelte";
   import Admin from "./pages/Admin.svelte";
@@ -32,6 +33,10 @@
       .then(() => !isDemo && startLive())
       .catch((e: Error) => (error = e.message));
   });
+  $effect(() => {
+    if (session.me || error || legal) hideSplash();
+  });
+
   const reading = $derived(route.name === "folder" && route.threadId !== null);
 
   $effect(() => {

@@ -15,8 +15,135 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Splash: inline so it paints before the bundle loads. Frame one is the
+         Android splash (the icon at 128px), so the hand-off doesn't jump. -->
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: grid;
+        place-items: center;
+        background: #0b0a0d;
+        transition: opacity 0.35s ease 0.1s;
+      }
+
+      #splash svg {
+        width: 128px;
+        height: 128px;
+        overflow: visible;
+      }
+
+      #splash .icon {
+        transform-origin: 256px 256px;
+        animation: splash-breathe 0.6s ease-in-out 0.15s;
+      }
+
+      #splash .glow {
+        animation: splash-glow 0.9s ease-in-out 0.15s;
+      }
+
+      #splash .envelope {
+        transform-origin: 256px 372px;
+        animation: splash-hop 0.6s cubic-bezier(0.3, 0, 0.3, 1) 0.15s;
+      }
+
+      #splash .flap {
+        stroke-dasharray: 360;
+        animation: splash-seal 0.5s ease-in-out 0.3s both;
+      }
+
+      #splash.out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #splash.out .icon {
+        animation: splash-zoom 0.45s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+      }
+
+      @keyframes splash-breathe {
+        50% {
+          transform: scale(1.06);
+        }
+      }
+
+      @keyframes splash-glow {
+        50% {
+          filter: brightness(1.6);
+        }
+      }
+
+      @keyframes splash-hop {
+        35% {
+          transform: translateY(-34px) scale(0.97, 1.04);
+        }
+        70% {
+          transform: translateY(0) scale(1.05, 0.94);
+        }
+      }
+
+      @keyframes splash-seal {
+        0% {
+          stroke-dashoffset: 0;
+        }
+        45% {
+          stroke-dashoffset: 360;
+        }
+        100% {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      @keyframes splash-zoom {
+        to {
+          transform: scale(1.35);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #splash *,
+        #splash.out .icon {
+          animation: none !important;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <svg viewBox="0 0 512 512">
+        <defs>
+          <linearGradient id="splash-bg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1c1721" />
+            <stop offset="1" stop-color="#0b0a0d" />
+          </linearGradient>
+          <radialGradient id="splash-glow" cx="0.15" cy="0.1" r="0.9">
+            <stop offset="0" stop-color="#eb459e" stop-opacity="0.35" />
+            <stop offset="1" stop-color="#eb459e" stop-opacity="0" />
+          </radialGradient>
+          <linearGradient id="splash-env" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#f45fae" />
+            <stop offset="1" stop-color="#d42f86" />
+          </linearGradient>
+        </defs>
+        <g class="icon">
+          <rect width="512" height="512" rx="112" fill="url(#splash-bg)" />
+          <rect class="glow" width="512" height="512" rx="112" fill="url(#splash-glow)" />
+          <g class="envelope">
+            <rect x="88" y="140" width="336" height="232" rx="40" fill="url(#splash-env)" />
+            <path
+              class="flap"
+              d="M120 180 L256 284 L392 180"
+              fill="none"
+              stroke="#fff1f8"
+              stroke-width="30"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </g>
+        </g>
+      </svg>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/web/main.ts"></script>
   </body>
