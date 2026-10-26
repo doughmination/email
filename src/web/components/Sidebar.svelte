@@ -106,7 +106,7 @@
   {/if}
 
   <ul class="bottom">
-    <li><a class="item" class:active={route.name === "settings"} href={router.href("/settings")}><SettingsIcon size={16} /> <span class="label">Settings</span></a></li>
+    <li><a class="item" class:active={route.name === "settings" || route.name === "privacy" || route.name === "terms"} href={router.href("/settings")}><SettingsIcon size={16} /> <span class="label">Settings</span></a></li>
     {#if session.me?.isAdmin}
       <li><a class="item" class:active={route.name === "admin"} href={router.href("/admin")}><Shield size={16} /> <span class="label">Admin</span></a></li>
     {/if}

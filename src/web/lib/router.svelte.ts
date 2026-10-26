@@ -3,6 +3,8 @@ import type { ListFolder } from "../../shared/types";
 export type Route =
   | { name: "folder"; folder: ListFolder; threadId: string | null }
   | { name: "settings" }
+  | { name: "privacy" }
+  | { name: "terms" }
   | { name: "admin" };
 
 /**
@@ -20,6 +22,8 @@ function strip(pathname: string): string {
 function parse(path: string): Route {
   const [first, second] = path.split("/").filter(Boolean);
   if (first === "settings") return { name: "settings" };
+  if (first === "privacy") return { name: "privacy" };
+  if (first === "terms") return { name: "terms" };
   if (first === "admin") return { name: "admin" };
   const folder: ListFolder = first === "sent" || first === "drafts" || first === "bin" ? first : "inbox";
   return { name: "folder", folder, threadId: second ?? null };

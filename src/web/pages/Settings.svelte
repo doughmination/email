@@ -4,8 +4,11 @@
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
   import Bell from "@lucide/svelte/icons/bell";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import { onMount } from "svelte";
   import { api } from "../lib/api";
+  import { router } from "../lib/router.svelte";
   import { session } from "../lib/state.svelte";
 
   let name = $state(session.me?.name ?? "");
@@ -102,6 +105,15 @@
     {/if}
     {#if status}<p class="muted">{status}</p>{/if}
   </section>
+
+  <section>
+    <h2><ShieldCheck size={16} /> Privacy and terms</h2>
+    <p class="muted">What's stored about you and your mail, who can see it, and the rules for using the inbox.</p>
+    <div class="buttons">
+      <a class="btn link" href={router.href("/privacy")}>Privacy policy <ChevronRight size={16} /></a>
+      <a class="btn link" href={router.href("/terms")}>Terms of service <ChevronRight size={16} /></a>
+    </div>
+  </section>
 </div>
 
 <style>
@@ -162,6 +174,13 @@
 
   ul li {
     overflow-wrap: anywhere;
+  }
+
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    text-decoration: none;
   }
 
   /* Phones: the app bar names the page; cards run edge to edge of the gutter. */

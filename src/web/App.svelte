@@ -13,14 +13,25 @@
   import { isDemo, router } from "./lib/router.svelte";
   import { composeNew, composer, loadSession, session } from "./lib/state.svelte";
   import Admin from "./pages/Admin.svelte";
+  import Privacy from "./pages/Privacy.svelte";
   import Settings from "./pages/Settings.svelte";
-
-  let error = $state("");
-  loadSession()
-    .then(() => !isDemo && startLive())
-    .catch((e: Error) => (error = e.message));
+  import Terms from "./pages/Terms.svelte";
 
   const route = $derived(router.route);
+  const legal = $derived(route.name === "privacy" || route.name === "terms");
+
+  // The privacy policy and terms are public, so opening them directly doesn't
+  // sign you in first. Anywhere else loads the session (and redirects to
+  // sign-in if needed).
+  let error = $state("");
+  let started = false;
+  $effect(() => {
+    if (started || legal) return;
+    started = true;
+    loadSession()
+      .then(() => !isDemo && startLive())
+      .catch((e: Error) => (error = e.message));
+  });
   const reading = $derived(route.name === "folder" && route.threadId !== null);
 
   $effect(() => {
@@ -36,13 +47,16 @@
   });
 
   const titles: Record<string, string> = { inbox: "Inbox", sent: "Sent", drafts: "Drafts", bin: "Bin" };
-  const title = $derived(route.name === "folder" ? titles[route.folder] : route.name === "settings" ? "Settings" : "Admin");
+  const pageTitles: Record<string, string> = { settings: "Settings", privacy: "Privacy", terms: "Terms", admin: "Admin" };
+  const title = $derived(route.name === "folder" ? titles[route.folder] : pageTitles[route.name]);
 </script>
 
 <svelte:window onkeydown={(e) => e.key === "Escape" && (drawer = false)} />
 
 {#if error}
   <p class="error boot">{error}</p>
+{:else if !session.me && legal}
+  {#if route.name === "privacy"}<Privacy standalone />{:else}<Terms standalone />{/if}
 {:else if !session.me}
   <p class="muted boot">Loading…</p>
 {:else}
@@ -67,6 +81,10 @@
       {/if}
     {:else if route.name === "settings"}
       <Settings />
+    {:else if route.name === "privacy"}
+      <Privacy />
+    {:else if route.name === "terms"}
+      <Terms />
     {:else if route.name === "admin" && session.me.isAdmin}
       <Admin />
     {/if}
