@@ -14,6 +14,7 @@ import {
   getThread,
   listThreads,
   setThreadRead,
+  setThreadStarred,
   trashMessage,
   trashThread,
   unreadByMailbox,
@@ -35,7 +36,7 @@ const compose = z.object({
 }) satisfies z.ZodType<ComposeInput, unknown>;
 
 const listQuery = z.object({
-  folder: z.enum(["inbox", "sent", "drafts", "bin"]).default("inbox"),
+  folder: z.enum(["inbox", "sent", "drafts", "bin", "starred"]).default("inbox"),
   mailbox: z.string().max(320).optional(),
   cursor: z.string().max(100).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -85,6 +86,12 @@ export const mail = new Hono<AppEnv>()
     const user = c.get("user").username;
     await setThreadRead(c.env, user, c.req.param("id"), c.req.valid("json").read);
     return c.json({ unread: await unreadByMailbox(c.env, user) });
+  })
+
+  .post("/threads/:id/star", zValidator("json", z.object({ starred: z.boolean() })), async (c) => {
+    const { starred } = c.req.valid("json");
+    const found = await setThreadStarred(c.env, c.get("user").username, c.req.param("id"), starred);
+    return found ? c.json({ starred }) : c.json({ error: "Not found" }, 404);
   })
 
   /** Moves the thread to the Bin; with ?forever=1, deletes what of it is already there. */

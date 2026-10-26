@@ -51,7 +51,13 @@
     drawer = false;
   });
 
-  const titles: Record<string, string> = { inbox: "Inbox", sent: "Sent", drafts: "Drafts", bin: "Bin" };
+  const titles: Record<string, string> = {
+    inbox: "Inbox",
+    starred: "Starred",
+    sent: "Sent",
+    drafts: "Drafts",
+    bin: "Bin",
+  };
   const pageTitles: Record<string, string> = { settings: "Settings", privacy: "Privacy", terms: "Terms", admin: "Admin" };
   const title = $derived(route.name === "folder" ? titles[route.folder] : pageTitles[route.name]);
 </script>

@@ -9,6 +9,8 @@
   import Mail from "@lucide/svelte/icons/mail";
   import MailOpen from "@lucide/svelte/icons/mail-open";
   import Paperclip from "@lucide/svelte/icons/paperclip";
+  import Star from "@lucide/svelte/icons/star";
+  import StarOff from "@lucide/svelte/icons/star-off";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
@@ -103,6 +105,18 @@
     }
   }
 
+  async function toggleStar(thread: ThreadSummary) {
+    const star = !thread.starred;
+    thread.starred = star;
+    if (!star && folder === "starred") takeOut(thread);
+    try {
+      await api.starThread(thread.id, star);
+      changed();
+    } catch (e) {
+      fail(e);
+    }
+  }
+
   function takeOut(thread: ThreadSummary) {
     collapsing.add(thread.id);
     items = items.filter((item) => item.id !== thread.id);
@@ -167,7 +181,7 @@
         run: () => restore(thread),
       };
     }
-    if (folder !== "inbox") return undefined;
+    if (folder !== "inbox" && folder !== "starred") return undefined;
     return {
       label: thread.unread ? "Read" : "Unread",
       icon: thread.unread ? MailOpen : Mail,
@@ -211,7 +225,7 @@
         },
       ];
     }
-    const readToggle: MenuItem[] = folder === "inbox"
+    const readToggle: MenuItem[] = folder === "inbox" || folder === "starred"
       ? [
           {
             label: thread.unread ? "Mark as read" : "Mark as unread",
@@ -222,6 +236,11 @@
       : [];
     return [
       open,
+      {
+        label: thread.starred ? "Unstar" : "Star",
+        icon: thread.starred ? StarOff : Star,
+        run: () => toggleStar(thread),
+      },
       ...readToggle,
       {
         label: "Move to Bin",
@@ -233,13 +252,13 @@
   }
 
   function who(t: ThreadSummary) {
-    // The Bin mixes folders; whoever it's from reads best there.
-    return folder === "inbox" || folder === "bin" ? displayName(t.from) : `To: ${t.to.map(displayName).join(", ") || "(nobody yet)"}`;
+    // The Bin and Starred mix folders; whoever it's from reads best there.
+    return folder === "inbox" || folder === "bin" || folder === "starred" ? displayName(t.from) : `To: ${t.to.map(displayName).join(", ") || "(nobody yet)"}`;
   }
 
   /** Phones show a coloured initial beside each row, as Gmail does. */
   function avatar(t: ThreadSummary) {
-    const name = folder === "inbox" || folder === "bin" ? displayName(t.from) : displayName(t.to[0] ?? "?");
+    const name = folder === "inbox" || folder === "bin" || folder === "starred" ? displayName(t.from) : displayName(t.to[0] ?? "?");
     const letter = name.match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase() ?? "?";
     let hue = 0;
     for (const c of name) hue = (hue * 31 + c.charCodeAt(0)) % 360;
@@ -292,6 +311,17 @@
             <div class="subject">{t.subject || "(no subject)"}</div>
             <div class="snippet">{t.snippet}</div>
           </a>
+          {#if folder !== "bin"}
+            <button
+              class="star"
+              class:on={t.starred}
+              aria-label={t.starred ? "Unstar" : "Star"}
+              aria-pressed={t.starred}
+              onclick={() => toggleStar(t)}
+            >
+              <Star size={18} fill={t.starred ? "currentColor" : "none"} />
+            </button>
+          {/if}
         </SwipeRow>
       </li>
     {/each}
@@ -424,6 +454,36 @@
 
   .more {
     margin: 1rem;
+  }
+
+  /* Sits over the row's bottom-right corner, beside the snippet. */
+  .star {
+    position: absolute;
+    right: 0.6rem;
+    bottom: 0.45rem;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .star:hover {
+    background: var(--raised-hover);
+    color: var(--text);
+  }
+
+  .star.on {
+    color: var(--star);
+  }
+
+  .snippet {
+    padding-right: 2rem;
   }
 
   .avatar {

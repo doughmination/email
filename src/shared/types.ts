@@ -2,8 +2,11 @@
 
 export type Folder = "inbox" | "sent" | "drafts";
 
-/** What the thread list can show: a folder, or the Bin (anything deleted, from any folder). */
-export type ListFolder = Folder | "bin";
+/**
+ * What the thread list can show: a folder, the Bin (anything deleted, from
+ * any folder), or Starred (starred threads, from any folder, outside the Bin).
+ */
+export type ListFolder = Folder | "bin" | "starred";
 
 export interface Me {
   username: string;
@@ -34,6 +37,7 @@ export interface ThreadSummary {
   count: number;
   unread: number;
   hasAttachments: boolean;
+  starred: boolean;
 }
 
 export interface AttachmentInfo {
@@ -68,6 +72,7 @@ export interface Message {
 export interface Thread {
   id: string;
   subject: string;
+  starred: boolean;
   messages: Message[];
 }
 

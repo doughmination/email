@@ -11,6 +11,7 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import Shield from "@lucide/svelte/icons/shield";
   import SquarePen from "@lucide/svelte/icons/square-pen";
+  import Star from "@lucide/svelte/icons/star";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { ListFolder } from "../../shared/types";
   import { api } from "../lib/api";
@@ -22,6 +23,7 @@
 
   const folders: { folder: ListFolder; label: string; icon: typeof InboxIcon }[] = [
     { folder: "inbox", label: "Inbox", icon: InboxIcon },
+    { folder: "starred", label: "Starred", icon: Star },
     { folder: "sent", label: "Sent", icon: Send },
     { folder: "drafts", label: "Drafts", icon: FileText },
     { folder: "bin", label: "Bin", icon: Trash2 },
@@ -79,13 +81,13 @@
     <h3 class="mailboxes-title">Mailboxes</h3>
     <ul class="mailboxes">
       <li>
-        <a class="item" class:active={!router.mailbox} href={router.href(folderHref(current ?? "inbox", null))}>
+        <a class="item" class:active={current && !router.mailbox} href={router.href(folderHref(current ?? "inbox", null))}>
           <span>All</span>
         </a>
       </li>
       {#each byDomain as [domain, addresses] (domain)}
         <li>
-          <a class="item domain" class:active={router.mailbox === `@${domain}`} href={router.href(folderHref(current ?? "inbox", `@${domain}`))}>
+          <a class="item domain" class:active={current && router.mailbox === `@${domain}`} href={router.href(folderHref(current ?? "inbox", `@${domain}`))}>
             <Globe size={14} />
             <span>{domain}</span>
             {#if unreadFor(domain)}<span class="count">{unreadFor(domain)}</span>{/if}
@@ -93,7 +95,7 @@
           <ul>
             {#each addresses as addr (addr)}
               <li>
-                <a class="item address" class:active={router.mailbox === addr} href={router.href(folderHref(current ?? "inbox", addr))}>
+                <a class="item address" class:active={current && router.mailbox === addr} href={router.href(folderHref(current ?? "inbox", addr))}>
                   <span>{addr.slice(0, addr.lastIndexOf("@"))}</span>
                   {#if session.unread[addr]}<span class="count">{session.unread[addr]}</span>{/if}
                 </a>

@@ -150,6 +150,7 @@ export function createDemoApi(): Api {
   /** Uploaded, not yet part of a message. */
   const uploads = new Map<string, AttachmentInfo>();
   const messages: Stored[] = [];
+  const starred = new Set<string>();
 
   function addressesOf(username: string): string[] {
     const out: string[] = [];
@@ -420,7 +421,11 @@ export function createDemoApi(): Api {
   function summaries(folder: ListFolder, mailbox: string | null): ThreadSummary[] {
     const inFolder = messages.filter(
       (m) =>
-        (folder === "bin" ? !!m.trashedAt : m.folder === folder && !m.trashedAt) &&
+        (folder === "bin"
+          ? !!m.trashedAt
+          : folder === "starred"
+            ? starred.has(m.threadId) && !m.trashedAt
+            : m.folder === folder && !m.trashedAt) &&
         (!mailbox || (mailbox.startsWith("@") ? m.mailbox.endsWith(mailbox.toLowerCase()) : m.mailbox === mailbox.toLowerCase())),
     );
     const byThread = new Map<string, Stored[]>();
@@ -440,6 +445,7 @@ export function createDemoApi(): Api {
           count: list.length,
           unread: list.filter((m) => !m.read).length,
           hasAttachments: messages.some((m) => m.threadId === id && m.attachments.some((a) => !a.contentId)),
+          starred: starred.has(id),
         };
       })
       .sort((a, b) => b.lastAt - a.lastAt);
@@ -480,12 +486,23 @@ export function createDemoApi(): Api {
       later<Thread>(() => {
         const list = messages.filter((m) => m.threadId === id && !!m.trashedAt === !!bin).sort((a, b) => a.sentAt - b.sentAt);
         if (!list.length) throw new Error("Not found");
-        return { id, subject: list.at(-1)!.subject, messages: list };
+        return {
+          id,
+          subject: list.at(-1)!.subject,
+          starred: starred.has(id),
+          messages: list,
+        };
       }),
     markThread: (id, read) =>
       later(() => {
         for (const m of messages) if (m.threadId === id && m.folder === "inbox") m.read = read;
         return { unread: unread() };
+      }),
+    starThread: (id, star) =>
+      later(() => {
+        if (star) starred.add(id);
+        else starred.delete(id);
+        return { starred: star };
       }),
     deleteThread: (id, forever) =>
       later(() => ({

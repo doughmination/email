@@ -11,6 +11,7 @@
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Reply from "@lucide/svelte/icons/reply";
+  import Star from "@lucide/svelte/icons/star";
   import Trash from "@lucide/svelte/icons/trash";
   import type { Message, Thread } from "../../shared/types";
   import { SvelteSet } from "svelte/reactivity";
@@ -92,6 +93,19 @@
     else opened.add(m.id);
   }
 
+  async function toggleStar() {
+    if (!thread) return;
+    const star = !thread.starred;
+    thread.starred = star;
+    try {
+      await api.starThread(id, star);
+      changed();
+    } catch (e) {
+      thread.starred = !star;
+      error = (e as Error).message;
+    }
+  }
+
   async function markUnread() {
     changed((await api.markThread(id, false)).unread);
     router.thread(null);
@@ -169,6 +183,15 @@
         <Trash size={20} />
       </button>
     {:else if thread && last}
+      <button
+        class="tb"
+        class:starred={thread.starred}
+        aria-label={thread.starred ? "Unstar" : "Star"}
+        aria-pressed={thread.starred}
+        onclick={toggleStar}
+      >
+        <Star size={20} fill={thread.starred ? "currentColor" : "none"} />
+      </button>
       <button class="tb" aria-label="Move to Bin" title="Move to Bin" onclick={removeThread}><Trash size={20} /></button>
       {#if hasInbound}
         <button class="tb" aria-label="Mark unread" title="Mark unread" onclick={markUnread}><MailOpen size={20} /></button>
@@ -196,6 +219,10 @@
       <div class="actions">
         <button class="btn accent" title="Reply (R)" onclick={() => composeReply(last)}><Reply size={14} /> Reply</button>
         <button class="btn" title="Forward (F)" onclick={() => composeForward(last)}><Forward size={14} /> Forward</button>
+        <button class="btn" class:starred={thread.starred} aria-pressed={thread.starred} onclick={toggleStar}>
+          <Star size={14} fill={thread.starred ? "currentColor" : "none"} />
+          {thread.starred ? "Starred" : "Star"}
+        </button>
         {#if hasInbound}
           <button class="btn" onclick={markUnread}><MailOpen size={14} /> Mark unread</button>
         {/if}
@@ -550,5 +577,9 @@
       padding-block: 0.65rem;
       font-size: 0.95rem;
     }
+  }
+
+  .starred {
+    color: var(--star);
   }
 </style>

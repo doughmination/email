@@ -25,7 +25,13 @@ function parse(path: string): Route {
   if (first === "privacy") return { name: "privacy" };
   if (first === "terms") return { name: "terms" };
   if (first === "admin") return { name: "admin" };
-  const folder: ListFolder = first === "sent" || first === "drafts" || first === "bin" ? first : "inbox";
+  const folders: ListFolder[] = [
+    "sent",
+    "drafts",
+    "bin",
+    "starred",
+  ];
+  const folder = folders.find((name) => name === first) ?? "inbox";
   return { name: "folder", folder, threadId: second ?? null };
 }
 

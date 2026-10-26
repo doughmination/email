@@ -203,6 +203,12 @@ export async function listThreads(env: Env, owner: string, f: ListFilter): Promi
   const params: (string | number)[] = [owner];
   if (f.folder === "bin") {
     where.push("trashed_at IS NOT NULL");
+  } else if (f.folder === "starred") {
+    where.push(
+      "trashed_at IS NULL",
+      "thread_id IN (SELECT id FROM threads WHERE owner = ? AND starred_at IS NOT NULL)",
+    );
+    params.push(owner);
   } else {
     where.push("folder = ?", "trashed_at IS NULL");
     params.push(f.folder);
@@ -234,7 +240,10 @@ export async function listThreads(env: Env, owner: string, f: ListFilter): Promi
      SELECT f.*, EXISTS (
        SELECT 1 FROM attachments a JOIN messages m ON a.message_id = m.id
        WHERE m.thread_id = f.thread_id AND a.content_id IS NULL
-     ) AS has_att
+     ) AS has_att,
+     EXISTS (
+       SELECT 1 FROM threads t WHERE t.id = f.thread_id AND t.starred_at IS NOT NULL
+     ) AS starred
      FROM f WHERE rn = 1 ${after}
      ORDER BY sent_at DESC, thread_id DESC LIMIT ?`,
   )
@@ -251,6 +260,7 @@ export async function listThreads(env: Env, owner: string, f: ListFilter): Promi
       n: number;
       unread: number;
       has_att: number;
+      starred: number;
     }>();
 
   const page = results.slice(0, f.limit);
@@ -268,6 +278,7 @@ export async function listThreads(env: Env, owner: string, f: ListFilter): Promi
       count: r.n,
       unread: r.unread,
       hasAttachments: r.has_att === 1,
+      starred: r.starred === 1,
     })),
     nextCursor: results.length > f.limit && last ? `${last.sent_at}.${last.thread_id}` : null,
   };
@@ -276,7 +287,7 @@ export async function listThreads(env: Env, owner: string, f: ListFilter): Promi
 /** The thread's messages outside the Bin, or with `bin`, only those in it. */
 export async function getThread(env: Env, owner: string, threadId: string, bin = false): Promise<Thread | null> {
   const trashed = bin ? "trashed_at IS NOT NULL" : "trashed_at IS NULL";
-  const [messages, attachments] = await env.DB.batch([
+  const [messages, attachments, starred] = await env.DB.batch([
     env.DB.prepare(`SELECT * FROM messages WHERE thread_id = ? AND owner = ? AND ${trashed} ORDER BY sent_at`).bind(
       threadId,
       owner,
@@ -285,6 +296,10 @@ export async function getThread(env: Env, owner: string, threadId: string, bin =
       "SELECT a.id, a.message_id, a.filename, a.content_type, a.size, a.content_id FROM attachments a " +
         `JOIN messages m ON a.message_id = m.id WHERE m.thread_id = ? AND m.owner = ? AND m.${trashed}`,
     ).bind(threadId, owner),
+    env.DB.prepare("SELECT 1 FROM threads WHERE id = ? AND owner = ? AND starred_at IS NOT NULL").bind(
+      threadId,
+      owner,
+    ),
   ]);
   const rows = (messages?.results ?? []) as MessageRow[];
   if (!rows.length) return null;
@@ -296,13 +311,26 @@ export async function getThread(env: Env, owner: string, threadId: string, bin =
     byMessage.set(a.message_id, list);
   }
   const list = rows.map((r) => toMessage(r, byMessage.get(r.id) ?? []));
-  return { id: threadId, subject: list[list.length - 1]!.subject, messages: list };
+  return {
+    id: threadId,
+    subject: list[list.length - 1]!.subject,
+    starred: (starred?.results.length ?? 0) > 0,
+    messages: list,
+  };
 }
 
 export async function setThreadRead(env: Env, owner: string, threadId: string, read: boolean): Promise<void> {
   await env.DB.prepare("UPDATE messages SET read = ? WHERE thread_id = ? AND owner = ? AND folder = 'inbox'")
     .bind(read ? 1 : 0, threadId, owner)
     .run();
+}
+
+/** Returns false when the owner has no such thread. */
+export async function setThreadStarred(env: Env, owner: string, threadId: string, starred: boolean): Promise<boolean> {
+  const res = await env.DB.prepare("UPDATE threads SET starred_at = ? WHERE id = ? AND owner = ?")
+    .bind(starred ? Date.now() : null, threadId, owner)
+    .run();
+  return res.meta.changes > 0;
 }
 
 /** Unread inbox mail, per address the owner received it on. */

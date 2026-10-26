@@ -37,12 +37,9 @@
   let menuHeight = $state(0);
   let confirming = $state<MenuItem | null>(null);
 
-  // The finger that held the row lifts over the backdrop; don't close on it.
-  const openedAt = performance.now();
-
-  function onbackdrop() {
-    if (performance.now() - openedAt > 350) onclose();
-  }
+  // The hold that opened the menu ends in stray clicks and context menus.
+  // Only a fresh press counts, so those never close it or pick an item.
+  let pressed = false;
 
   // Keeps the popover on screen, flipping above the cursor if need be.
   const left = $derived(Math.max(8, Math.min(at.x, innerWidth - menuWidth - 8)));
@@ -52,7 +49,10 @@
     menu.querySelector("button")?.focus();
   });
 
-  function choose(item: MenuItem) {
+  function choose(event: MouseEvent, item: MenuItem) {
+    // detail is 0 for Enter and Space, which are always deliberate.
+    const fromKeyboard = event.detail === 0;
+    if (!pressed && !fromKeyboard) return;
     if (item.confirm && confirming !== item) return void (confirming = item);
     onclose();
     item.run();
@@ -75,11 +75,8 @@
   class="backdrop"
   class:sheet-backdrop={!at.mouse}
   role="presentation"
-  onclick={onbackdrop}
-  oncontextmenu={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
+  onpointerdown={onclose}
+  oncontextmenu={(event) => event.preventDefault()}
   transition:fade={{ duration: 120 }}
 ></div>
 
@@ -92,6 +89,8 @@
   bind:this={menu}
   bind:clientWidth={menuWidth}
   bind:clientHeight={menuHeight}
+  onpointerdown={() => (pressed = true)}
+  oncontextmenu={(event) => event.preventDefault()}
   style:left={at.mouse ? `${left}px` : undefined}
   style:top={at.mouse ? `${top}px` : undefined}
   transition:fly={{
@@ -109,7 +108,7 @@
     <button
       role="menuitem"
       class:danger={item.danger}
-      onclick={() => choose(item)}
+      onclick={(event) => choose(event, item)}
     >
       <Icon size={18} />
       {confirming === item ? item.confirm : item.label}
@@ -122,6 +121,8 @@
     position: fixed;
     inset: 0;
     z-index: 30;
+    -webkit-touch-callout: none;
+    user-select: none;
   }
 
   .sheet-backdrop {
@@ -131,6 +132,8 @@
   .menu {
     position: fixed;
     z-index: 31;
+    -webkit-touch-callout: none;
+    user-select: none;
     display: flex;
     flex-direction: column;
     min-width: 13rem;

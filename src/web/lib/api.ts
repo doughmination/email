@@ -65,6 +65,7 @@ const server = {
   /** With `bin`, only the part of the thread that's in the Bin. */
   thread: (id: string, bin = false) => get<Thread>(`/api/threads/${id}${bin ? "?bin=1" : ""}`),
   markThread: (id: string, read: boolean) => post<Unread>(`/api/threads/${id}/read`, { read }),
+  starThread: (id: string, starred: boolean) => post<{ starred: boolean }>(`/api/threads/${id}/star`, { starred }),
   /** Moves it to the Bin; `forever` deletes what of it is already in the Bin. */
   deleteThread: (id: string, forever = false) => del<{ count: number }>(`/api/threads/${id}${forever ? "?forever=1" : ""}`),
   restoreThread: (id: string) => post<{ count: number }>(`/api/threads/${id}/restore`),

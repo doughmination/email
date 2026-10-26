@@ -137,6 +137,46 @@ describe("delivery", () => {
   });
 });
 
+describe("starred", () => {
+  const list = async (folder: string) =>
+    ((await (await call(clove, `/api/threads?folder=${folder}`)).json()) as Page<ThreadSummary>).items;
+  const star = (token: string, threadId: string, starred: boolean) =>
+    call(token, `/api/threads/${threadId}/star`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ starred }),
+    });
+
+  it("lists starred threads and flags them everywhere", async () => {
+    const { threadId } = await deliver("clove", "Star me");
+    expect((await list("starred")).map((t) => t.id)).not.toContain(threadId);
+
+    expect((await star(clove, threadId, true)).status).toBe(200);
+    expect((await list("starred")).map((t) => t.id)).toContain(threadId);
+    expect((await list("inbox")).find((t) => t.id === threadId)?.starred).toBe(true);
+    const thread = (await (await call(clove, `/api/threads/${threadId}`)).json()) as Thread;
+    expect(thread.starred).toBe(true);
+
+    await star(clove, threadId, false);
+    expect((await list("starred")).map((t) => t.id)).not.toContain(threadId);
+  });
+
+  it("hides binned threads from Starred but keeps the star", async () => {
+    const { threadId } = await deliver("clove", "Starred then binned");
+    await star(clove, threadId, true);
+    await call(clove, `/api/threads/${threadId}`, { method: "DELETE" });
+    expect((await list("starred")).map((t) => t.id)).not.toContain(threadId);
+
+    await call(clove, `/api/threads/${threadId}/restore`, { method: "POST" });
+    expect((await list("starred")).map((t) => t.id)).toContain(threadId);
+  });
+
+  it("can't star someone else's thread", async () => {
+    const { threadId } = await deliver("clove", "Not yours");
+    expect((await star(ari, threadId, true)).status).toBe(404);
+  });
+});
+
 describe("bin", () => {
   const list = async (folder: string) =>
     ((await (await call(clove, `/api/threads?folder=${folder}`)).json()) as Page<ThreadSummary>).items.map((t) => t.id);
