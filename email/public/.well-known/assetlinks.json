@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "gay.doughmination.mail",
+      "sha256_cert_fingerprints": [
+        "70:61:A8:D6:7D:51:38:EE:1C:85:DA:4C:96:FE:9F:D3:37:F2:EB:49:1D:40:34:E4:54:91:32:1F:19:C4:89:81"
+      ]
+    }
+  }
+]

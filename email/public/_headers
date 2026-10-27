@@ -1,0 +1,11 @@
+# Applied by Workers static assets to the Svelte app.
+#
+# Email HTML renders in a srcdoc iframe, and a srcdoc document inherits this
+# policy, so style/img/font sources here are what an email may use at most.
+# EmailFrame narrows img-src further until "Show images" is clicked.
+# Scripts are never allowed anywhere but our own bundle.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

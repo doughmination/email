@@ -1,0 +1,297 @@
+/* mailbox/src/web/app.css
+ * Copyright (c) 2026 Clove Nytrix Doughmination Twilight
+ * Licensed under the DASL-1.0 Licence.
+ * See LICENCE.md in the project root for full licence information.
+ */
+
+/* Global tokens and base only; components carry their own scoped styles.
+   The look follows ~/projects/web (theme.css, header.css, contact.css):
+   translucent raised surfaces, hairline borders, rounded cards that pick up
+   an accent ring on hover, pill buttons. The font stays Comic Code.
+
+   Email content never sees any of this: it renders inside EmailFrame's
+   iframe, which is also what keeps an email's fonts and styles off the app. */
+
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Comic Code";
+  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* From the site's theme.css. */
+  --bg: #0b0a0d;
+  --raised: rgb(255 255 255 / 3.5%);
+  --line: rgb(255 255 255 / 9%);
+  --text: #ece9ef;
+  --muted: #a49eab;
+  --accent: #eb459e;
+  --accent-dim: rgb(235 69 158 / 14%);
+
+  /* Derived for the app: hovered/selected rows, accent borders, panels. */
+  --raised-hover: rgb(255 255 255 / 6%);
+  --accent-line: rgb(235 69 158 / 40%);
+  --panel: rgb(11 10 13 / 72%);
+  --danger: #ff5c7a;
+  --star: #f7c948;
+  --radius: 1rem;
+  --radius-sm: 0.5rem;
+  --font: "Comic Code", ui-monospace, monospace;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 14%) transparent;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* The site's wallpaper and fade (header.css .backdrop), fixed behind the
+   whole app rather than just the top of a page. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body::before {
+  background: url("/background.avif") center / cover no-repeat;
+  opacity: 0.5;
+}
+
+body::after {
+  background:
+    linear-gradient(rgb(11 10 13 / 55%), rgb(11 10 13 / 80%) 55%, var(--bg)),
+    radial-gradient(70% 60% at 20% 30%, rgb(235 69 158 / 12%), transparent 70%);
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--text);
+  text-decoration-color: rgb(235 69 158 / 55%);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: #fff;
+  text-decoration-color: var(--accent);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+
+/* Buttons: pills, as on the site's contact page. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn.accent {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn.accent:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.btn.danger {
+  border-color: rgb(255 92 122 / 40%);
+  color: var(--danger);
+}
+
+.btn.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 4px rgb(255 92 122 / 14%);
+}
+
+.btn.icon {
+  padding: 0.4rem;
+}
+
+/* Cards: the site's project/contact tiles. */
+
+.card {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+
+/* Small uppercase accent label (.eyebrow / .contact-name on the site). */
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.field input,
+.field select,
+.field textarea,
+.input {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 25%);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+
+/* Phones: 16px fields, or iOS Safari zooms the page on focus. */
+@media (max-width: 800px) {
+  .field input,
+  .field select,
+  .field textarea,
+  .input {
+    font-size: 16px;
+  }
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

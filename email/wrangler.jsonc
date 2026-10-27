@@ -1,0 +1,72 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "email",
+	"main": "src/worker/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	// The Svelte build is served straight from assets; only these paths reach
+	// the Worker. Everything else falls back to index.html for the SPA router.
+	"assets": {
+		"not_found_handling": "single-page-application",
+		"run_worker_first": [
+			"/api/*",
+			"/auth/*",
+			"/webhook/*"
+		]
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "email-db-v2",
+			"database_id": "c6a27bce-97c3-4b10-ad2a-df4a308f494f",
+			"migrations_dir": "migrations"
+		}
+	],
+	// One LiveHub per user holds their open tabs' WebSockets for live updates.
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "LIVE",
+				"class_name": "LiveHub"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"LiveHub"
+			]
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "BUCKET",
+			"bucket_name": "email-attachments"
+		}
+	],
+	"triggers": {
+		// Sweeps expired sessions and uploads that never made it into a message,
+		// and re-syncs the domain list from Resend.
+		"crons": [
+			"17 4 * * *"
+		]
+	},
+	"vars": {
+		"ADMIN_USERS": "clove",
+		"COOKIE_SECURE": "true",
+		"OIDC_ISSUER": "https://auth.doughmination.gay",
+		"OIDC_CLIENT_ID": "cc067f21-88ca-4927-ac7b-26d21968d2e1",
+		"OIDC_REDIRECT_URI": "https://mail.doughmination.gay/auth/callback",
+		"OIDC_POST_LOGOUT_REDIRECT_URI": "https://mail.doughmination.gay",
+		"OIDC_SCOPE": "openid profile email offline_access",
+		"VAPID_SUBJECT": "mailto:admin@doughmination.gay",
+		"VAPID_PUBLIC_KEY": "BJs_bZo392RyXRrh4LNcYxJ2qIhPVaOhWqOIVbsC4HTy5IlKmdGrF4bNuFiFOWAe7udwLbCDvjVX03IChs35Lp8"
+	}
+}

@@ -1,0 +1,14 @@
+{
+  // Build tooling only. The Worker and the Svelte app each have their own
+  // tsconfig (src/worker, src/web) because their globals differ.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "svelte.config.js"]
+}
