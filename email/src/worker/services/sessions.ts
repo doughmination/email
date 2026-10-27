@@ -23,13 +23,22 @@ interface Session {
 
 const now = () => Math.floor(Date.now() / 1000);
 
+/**
+ * Rows are keyed by a hash of the token, so a leaked copy of the database
+ * (a backup, an export) holds nothing that signs anyone in.
+ */
+export async function sessionKey(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function deleteSession(env: Env, token: string): Promise<void> {
-  await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
+  await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(await sessionKey(token)).run();
 }
 
 async function readSession(env: Env, token: string): Promise<Session | null> {
   const row = await env.DB.prepare("SELECT data FROM sessions WHERE token = ? AND expires_at > ?")
-    .bind(token, now())
+    .bind(await sessionKey(token), now())
     .first<{ data: string }>();
   if (!row) return null;
   try {
@@ -53,7 +62,7 @@ async function writeSession(env: Env, token: string, session: Session): Promise<
     "INSERT INTO sessions (token, data, expires_at) VALUES (?, ?, ?) " +
       "ON CONFLICT (token) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at",
   )
-    .bind(token, JSON.stringify(session), now() + remaining)
+    .bind(await sessionKey(token), JSON.stringify(session), now() + remaining)
     .run();
 }
 
@@ -170,10 +179,40 @@ export async function savePending(env: Env, p: Pending): Promise<string> {
 }
 
 export async function takePending(env: Env, id: string | undefined): Promise<Pending | null> {
+  const data = await takeRow(env, id);
+  return data && typeof data.state === "string" ? (data as unknown as Pending) : null;
+}
+
+async function takeRow(env: Env, id: string | undefined): Promise<Record<string, unknown> | null> {
   if (!id) return null;
   const row = await env.DB.prepare("DELETE FROM pending_logins WHERE id = ? RETURNING data, expires_at")
     .bind(id)
     .first<{ data: string; expires_at: number }>();
   if (!row || row.expires_at <= now()) return null;
-  return JSON.parse(row.data) as Pending;
+  return JSON.parse(row.data) as Record<string, unknown>;
+}
+
+// The Android app signs in through the same SSO flow in a browser tab. The
+// callback can't hand it a cookie, so it hands over a one-time code instead,
+// which the app swaps for the session token along with the PKCE verifier only
+// it holds. Another app that catches the redirect gets a useless code.
+const APP_CODE_TTL_S = 60;
+
+export async function saveAppCode(env: Env, token: string, challenge: string): Promise<string> {
+  const id = crypto.randomUUID();
+  await env.DB.prepare("INSERT INTO pending_logins (id, data, expires_at) VALUES (?, ?, ?)")
+    .bind(id, JSON.stringify({ appToken: token, challenge }), now() + APP_CODE_TTL_S)
+    .run();
+  return id;
+}
+
+/** The session token for an app code, once; null if it's unknown, used, expired or the challenge doesn't match. */
+export async function takeAppCode(
+  env: Env,
+  code: string,
+  matches: (challenge: string) => Promise<boolean>,
+): Promise<string | null> {
+  const data = await takeRow(env, code);
+  if (typeof data?.appToken !== "string" || typeof data.challenge !== "string") return null;
+  return (await matches(data.challenge)) ? data.appToken : null;
 }

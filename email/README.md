@@ -32,6 +32,16 @@ test/                  vitest, running inside workerd with local D1 + R2
   script, its own CSP, and remote content blocked until you click to load it.
   That keeps an email's fonts and styles inside the frame. Attachments are only
   ever shown inline when they're plain images.
+- **Sign-in**: the SSO, with sessions in D1 keyed by a hash of the cookie's
+  token. The SSO account (`sub`) is the identity, so someone renamed there keeps
+  their mailbox here. Role names like `postmaster` and `abuse` can't be signed up
+  for; hand them out as aliases. `ADMIN_USERS` makes a new account an admin only
+  while there's no admin yet.
+- **Android app**: signs in through the same flow in a browser tab, started with
+  `/auth/login?app=<PKCE challenge>`. The callback redirects to
+  `gay.doughmination.mail://auth?code=...`, the app swaps that code and its
+  verifier at `POST /auth/app/token` for a session token, and sends it as
+  `Authorization: Bearer`.
 
 ## Setup
 

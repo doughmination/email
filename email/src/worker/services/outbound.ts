@@ -1,6 +1,6 @@
 import type { ComposeInput } from "../../shared/types";
 import { bareAddress, formatAddress, splitAddress } from "../lib/address";
-import { forResend, setMessageAttachments } from "./attachments";
+import { AttachmentsTooLarge, MAX_MESSAGE_ATTACHMENT_BYTES, forResend, setMessageAttachments } from "./attachments";
 import { displayName, ownedAddress } from "./directory";
 import { ancestry, getMessageRow, insertMessage, resolveThread, snippetOf } from "./messages";
 import { resend } from "./resend";
@@ -118,7 +118,12 @@ export async function sendDraft(env: Env, user: string, draftId: string): Promis
   if (draft.in_reply_to) headers["In-Reply-To"] = draft.in_reply_to;
   if (draft.refs) headers["References"] = draft.refs;
 
-  const attachments = await forResend(env, user, draftId);
+  const attachments = await forResend(env, user, draftId).catch((err: unknown) => {
+    if (!(err instanceof AttachmentsTooLarge)) throw err;
+    throw new ComposeError(
+      `Attachments can be up to ${MAX_MESSAGE_ATTACHMENT_BYTES / 1024 / 1024} MB in total. It's saved in Drafts.`,
+    );
+  });
   const { data, error } = await resend(env).emails.send(
     {
       from: fromHeader,

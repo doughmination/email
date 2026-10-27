@@ -1,5 +1,6 @@
 import type { AttachmentInfo, Folder, ListFolder, Message, Page, Thread, ThreadSummary } from "../../shared/types";
 import { baseSubject, isReplySubject } from "../lib/address";
+import { chunks } from "../lib/chunk";
 import { purgeObjects } from "./attachments";
 
 const FALLBACK_THREAD_WINDOW_MS = 1000 * 60 * 60 * 24 * 30;
@@ -360,12 +361,14 @@ async function deleteWhere(env: Env, where: string, params: (string | number)[])
 
   const threads = [...new Set(deleted.map((d) => d.thread_id))];
   if (threads.length) {
-    await env.DB.prepare(
-      `DELETE FROM threads WHERE id IN (${threads.map(() => "?").join(", ")}) ` +
-        "AND NOT EXISTS (SELECT 1 FROM messages WHERE thread_id = threads.id)",
-    )
-      .bind(...threads)
-      .run();
+    await env.DB.batch(
+      chunks(threads).map((ids) =>
+        env.DB.prepare(
+          `DELETE FROM threads WHERE id IN (${ids.map(() => "?").join(", ")}) ` +
+            "AND NOT EXISTS (SELECT 1 FROM messages WHERE thread_id = threads.id)",
+        ).bind(...ids),
+      ),
+    );
   }
   await purgeObjects(env, keys.map((k) => k.r2_key));
   return deleted.length;

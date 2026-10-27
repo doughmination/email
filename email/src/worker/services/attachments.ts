@@ -1,9 +1,12 @@
 import type { AttachmentInfo } from "../../shared/types";
+import { chunks } from "../lib/chunk";
 
 // Everything this app writes sits under inbox/, apart from the proxy's
 // objects in the same bucket.
 const PREFIX = "inbox";
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+// Resend takes 40 MB per email once attachments are base64'd (a third bigger).
+export const MAX_MESSAGE_ATTACHMENT_BYTES = 28 * 1024 * 1024;
 const ORPHAN_UPLOAD_TTL_MS = 1000 * 60 * 60 * 24 * 2;
 
 export function inboundKey(resendEmailId: string, resendAttachmentId: string): string {
@@ -157,6 +160,8 @@ export async function getAttachment(env: Env, owner: string, id: string): Promis
     : null;
 }
 
+export class AttachmentsTooLarge extends Error {}
+
 /** Base64 bodies in the shape Resend's send API wants. */
 export async function forResend(
   env: Env,
@@ -164,10 +169,12 @@ export async function forResend(
   messageId: string,
 ): Promise<{ filename: string; content: string; contentType: string; contentId?: string }[]> {
   const { results } = await env.DB.prepare(
-    "SELECT r2_key, filename, content_type, content_id FROM attachments WHERE message_id = ? AND owner = ?",
+    "SELECT r2_key, filename, content_type, content_id, size FROM attachments WHERE message_id = ? AND owner = ?",
   )
     .bind(messageId, owner)
-    .all<{ r2_key: string; filename: string; content_type: string; content_id: string | null }>();
+    .all<{ r2_key: string; filename: string; content_type: string; content_id: string | null; size: number }>();
+  // Checked before anything is read: every file is held in memory, base64'd, at once.
+  if (results.reduce((n, r) => n + r.size, 0) > MAX_MESSAGE_ATTACHMENT_BYTES) throw new AttachmentsTooLarge();
 
   return Promise.all(
     results.map(async (r) => {
@@ -187,14 +194,17 @@ export async function forResend(
 export async function purgeObjects(env: Env, keys: string[]): Promise<void> {
   const unique = [...new Set(keys)];
   if (!unique.length) return;
-  const { results } = await env.DB.prepare(
-    `SELECT DISTINCT r2_key FROM attachments WHERE r2_key IN (${unique.map(() => "?").join(", ")})`,
-  )
-    .bind(...unique)
-    .all<{ r2_key: string }>();
-  const stillUsed = new Set(results.map((r) => r.r2_key));
+  const found = await env.DB.batch<{ r2_key: string }>(
+    chunks(unique).map((slice) =>
+      env.DB.prepare(
+        `SELECT DISTINCT r2_key FROM attachments WHERE r2_key IN (${slice.map(() => "?").join(", ")})`,
+      ).bind(...slice),
+    ),
+  );
+  const stillUsed = new Set(found.flatMap((r) => r.results.map((row) => row.r2_key)));
   const dead = unique.filter((k) => !stillUsed.has(k));
-  if (dead.length) await env.BUCKET.delete(dead);
+  // R2 deletes up to 1000 keys per call.
+  for (const slice of chunks(dead, 1000)) await env.BUCKET.delete(slice);
 }
 
 /** Uploads that were never sent or saved into a draft. Run from the cron. */

@@ -1,6 +1,7 @@
 import { env, exports } from "cloudflare:workers";
 import { Webhook } from "standardwebhooks";
 import { beforeAll, describe, expect, it } from "vitest";
+import { sessionKey } from "../src/worker/services/sessions";
 import type { Thread } from "../src/shared/types";
 import { insertMessage, resolveThread } from "../src/worker/services/messages";
 
@@ -52,7 +53,7 @@ beforeAll(async () => {
   const ts = Math.floor(now / 1000);
   await env.DB.prepare("INSERT INTO sessions (token, data, expires_at) VALUES (?, ?, ?)")
     .bind(
-      token,
+      await sessionKey(token),
       JSON.stringify({ username: "clove", sub: "sub-clove", refreshToken: null, idToken: null, createdAt: ts, verifiedAt: ts, checkedAt: ts }),
       ts + 3600,
     )

@@ -101,14 +101,25 @@ export function safeReturnTo(raw: string | undefined, fallback = "/inbox"): stri
   return raw;
 }
 
+/** S256 PKCE challenge for a verifier, as the app computes it too. */
+export async function pkceChallenge(verifier: string): Promise<string> {
+  return b64url(await sha256(verifier));
+}
+
 export interface Pending {
   state: string;
   nonce: string;
   codeVerifier: string;
   returnTo: string;
+  /** Set when the Android app started this login: its PKCE challenge. */
+  app?: string;
 }
 
-export async function buildAuthUrl(env: Env, returnTo: string): Promise<{ url: string; pending: Pending }> {
+export async function buildAuthUrl(
+  env: Env,
+  returnTo: string,
+  app?: string,
+): Promise<{ url: string; pending: Pending }> {
   const cfg = config(env);
   const d = await getDiscovery(cfg);
 
@@ -129,7 +140,7 @@ export async function buildAuthUrl(env: Env, returnTo: string): Promise<{ url: s
 
   return {
     url: url.toString(),
-    pending: { state, nonce, codeVerifier, returnTo: safeReturnTo(returnTo) },
+    pending: { state, nonce, codeVerifier, returnTo: safeReturnTo(returnTo), ...(app ? { app } : {}) },
   };
 }
 

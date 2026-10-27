@@ -22,8 +22,11 @@ const app = new Hono<AppEnv>()
   .get("/api/live", async (c) => {
     if (c.req.header("upgrade")?.toLowerCase() !== "websocket") return c.json({ error: "Expected a WebSocket" }, 426);
     // Browsers send cookies on cross-site WebSocket handshakes and sameOrigin
-    // lets GETs through, so check the origin here.
-    if (c.req.header("origin") !== new URL(c.req.url).origin) return c.json({ error: "Cross-site request refused" }, 403);
+    // lets GETs through, so check the origin here. The app's bearer token
+    // isn't ambient, so it has nothing to forge.
+    if (!c.get("bearer") && c.req.header("origin") !== new URL(c.req.url).origin) {
+      return c.json({ error: "Cross-site request refused" }, 403);
+    }
     const res = await c.env.LIVE.getByName(c.get("user").username.toLowerCase()).fetch(c.req.raw);
     // Re-wrapped: the stub's response has immutable headers, which secureHeaders needs to set.
     return new Response(null, { status: res.status, webSocket: res.webSocket });

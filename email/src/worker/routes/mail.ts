@@ -38,7 +38,7 @@ const compose = z.object({
 const listQuery = z.object({
   folder: z.enum(["inbox", "sent", "drafts", "bin", "starred"]).default("inbox"),
   mailbox: z.string().max(320).optional(),
-  cursor: z.string().max(100).optional(),
+  cursor: z.string().regex(/^\d{1,15}\.[0-9a-f-]{36}$/).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
@@ -130,6 +130,10 @@ export const mail = new Hono<AppEnv>()
   .get("/unread", async (c) => c.json({ unread: await unreadByMailbox(c.env, c.get("user").username) }))
 
   .post("/uploads", async (c) => {
+    // parseBody buffers the whole request, so turn away oversized ones before reading them.
+    if (Number(c.req.header("content-length") ?? 0) > MAX_UPLOAD_BYTES + 64 * 1024) {
+      return c.json({ error: "Attachments can be up to 25 MB each." }, 413);
+    }
     const body = await c.req.parseBody();
     const file = body["file"];
     if (!(file instanceof File)) return c.json({ error: "file is required" }, 400);
@@ -189,13 +193,13 @@ export const mail = new Hono<AppEnv>()
     zValidator(
       "json",
       z.object({
-        endpoint: z.url().max(2048),
+        endpoint: z.url({ protocol: /^https$/ }).max(2048),
         keys: z.object({ p256dh: z.string().max(200), auth: z.string().max(100) }),
       }),
     ),
     async (c) => {
-      await addSubscription(c.env, c.get("user").username, c.req.valid("json"));
-      return c.json({ ok: true });
+      const added = await addSubscription(c.env, c.get("user").username, c.req.valid("json"));
+      return added ? c.json({ ok: true }) : c.json({ error: "Too many devices have notifications on." }, 400);
     },
   )
 

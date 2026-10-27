@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it } from "vitest";
+import { sessionKey } from "../src/worker/services/sessions";
 import type { Page, Thread, ThreadSummary } from "../src/shared/types";
 import { setMessageAttachments } from "../src/worker/services/attachments";
 import { formatAddress } from "../src/worker/lib/address";
@@ -17,7 +18,7 @@ async function signIn(username: string, isAdmin = false): Promise<string> {
   const ts = Math.floor(now / 1000);
   const session = { username, sub: `sub-${username}`, refreshToken: null, idToken: null, createdAt: ts, verifiedAt: ts, checkedAt: ts };
   await env.DB.prepare("INSERT INTO sessions (token, data, expires_at) VALUES (?, ?, ?)")
-    .bind(token, JSON.stringify(session), ts + 3600)
+    .bind(await sessionKey(token), JSON.stringify(session), ts + 3600)
     .run();
   return token;
 }

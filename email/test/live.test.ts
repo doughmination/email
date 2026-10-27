@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it } from "vitest";
+import { sessionKey } from "../src/worker/services/sessions";
 import { notifyLive } from "../src/worker/services/live";
 
 const ORIGIN = "https://mail.test";
@@ -15,7 +16,7 @@ beforeAll(async () => {
   const ts = Math.floor(now / 1000);
   const session = { username: "clove", sub: "sub-clove", refreshToken: null, idToken: null, createdAt: ts, verifiedAt: ts, checkedAt: ts };
   await env.DB.prepare("INSERT INTO sessions (token, data, expires_at) VALUES (?, ?, ?)")
-    .bind(token, JSON.stringify(session), ts + 3600)
+    .bind(await sessionKey(token), JSON.stringify(session), ts + 3600)
     .run();
 });
 
