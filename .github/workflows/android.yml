@@ -36,6 +36,14 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Releases must be signed with the app's key, or they can't install over
+      # earlier builds; say so rather than quietly skipping the release.
+      - name: Require signing key
+        if: github.event_name != 'pull_request' && env.HAS_SIGNING_KEY != 'true'
+        run: |
+          echo "::error::KEYSTORE_BASE64 and KEYSTORE_PASSWORD aren't set on this repository, so no release can be built. See app/README.md (CI)."
+          exit 1
+
       # The keystore is stored base64-encoded in secrets. Pull requests from
       # forks don't get secrets, so they build unsigned.
       - name: Restore signing key
