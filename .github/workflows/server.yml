@@ -1,0 +1,21 @@
+name: Server
+
+on:
+  push:
+    branches: [main]
+    paths: ["email/**", ".github/workflows/server.yml"]
+  pull_request:
+    paths: ["email/**", ".github/workflows/server.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: email
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
