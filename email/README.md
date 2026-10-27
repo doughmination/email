@@ -65,8 +65,14 @@ SSO lets in becomes a user on first sign-in.
 npm run db:migrate:remote
 npx wrangler secret put RESEND_API_KEY        # also RESEND_WEBHOOK_SECRET,
                                               # OIDC_CLIENT_SECRET, VAPID_PRIVATE_KEY
+npx wrangler secret put FCM_SERVICE_ACCOUNT < service-account.json   # Android notifications
 npm run deploy
 ```
+
+`FCM_SERVICE_ACCOUNT` is the Firebase project's service account key (Firebase
+console > Project settings > Service accounts > Generate new private key). New
+mail is pushed to browsers through Web Push and to the Android app through
+FCM; without the key, the app just gets no notifications.
 
 Then:
 
