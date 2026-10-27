@@ -1,3 +1,4 @@
+import { notifyFcm } from "./fcm";
 import { sendWebPush, type PushSubscription, type VapidKeys } from "./webpush";
 
 function vapid(env: Env): VapidKeys | null {
@@ -37,12 +38,27 @@ export async function removeSubscription(env: Env, username: string, endpoint: s
     .run();
 }
 
-/** Notifies every device `username` has subscribed; drops ones the push service says are gone. */
+/**
+ * Notifies every device `username` has: browsers through Web Push, the
+ * Android app through FCM. Drops ones the push service says are gone.
+ */
 export async function notifyUser(
   env: Env,
   username: string,
   payload: PushPayload,
 ): Promise<{ sent: number; pruned: number }> {
+  const [web, app] = await Promise.all([
+    notifyWebPush(env, username, payload),
+    // A broken FCM setup mustn't stop browsers getting theirs.
+    notifyFcm(env, username, payload).catch((err) => {
+      console.error("FCM notify failed", err);
+      return { sent: 0, pruned: 0 };
+    }),
+  ]);
+  return { sent: web.sent + app.sent, pruned: web.pruned + app.pruned };
+}
+
+async function notifyWebPush(env: Env, username: string, payload: PushPayload): Promise<{ sent: number; pruned: number }> {
   const keys = vapid(env);
   if (!keys) return { sent: 0, pruned: 0 };
 

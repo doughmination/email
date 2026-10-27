@@ -20,6 +20,7 @@ import {
   unreadByMailbox,
 } from "../services/messages";
 import { ComposeError, saveDraft, sendDraft } from "../services/outbound";
+import { addFcmToken, removeFcmToken } from "../services/fcm";
 import { addSubscription, notifyUser, pushPublicKey, removeSubscription } from "../services/push";
 
 const address = z.string().max(320).refine(isAddress, "Not an email address");
@@ -205,6 +206,17 @@ export const mail = new Hono<AppEnv>()
 
   .post("/push/unsubscribe", zValidator("json", z.object({ endpoint: z.string().max(2048) })), async (c) => {
     await removeSubscription(c.env, c.get("user").username, c.req.valid("json").endpoint);
+    return c.json({ ok: true });
+  })
+
+  /** The Android app's FCM token, registered after sign-in and whenever Firebase rotates it. */
+  .post("/push/fcm", zValidator("json", z.object({ token: z.string().min(1).max(4096) })), async (c) => {
+    const added = await addFcmToken(c.env, c.get("user").username, c.req.valid("json").token);
+    return added ? c.json({ ok: true }) : c.json({ error: "Too many devices have notifications on." }, 400);
+  })
+
+  .post("/push/fcm/unregister", zValidator("json", z.object({ token: z.string().max(4096) })), async (c) => {
+    await removeFcmToken(c.env, c.get("user").username, c.req.valid("json").token);
     return c.json({ ok: true });
   })
 
