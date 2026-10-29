@@ -3,10 +3,10 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
-  import Paperclip from "@lucide/svelte/icons/paperclip";
-  import Send from "@lucide/svelte/icons/send";
-  import X from "@lucide/svelte/icons/x";
+  import LoaderCircle from "../lib/icons/LoaderCircle.svelte";
+  import Paperclip from "../lib/icons/Paperclip.svelte";
+  import Send from "../lib/icons/Send.svelte";
+  import X from "../lib/icons/X.svelte";
   import type { AttachmentInfo, ComposeInput } from "../../shared/types";
   import { api, ApiError } from "../lib/api";
   import { fmtSize, isAddress } from "../lib/format";

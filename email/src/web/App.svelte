@@ -3,8 +3,8 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import Menu from "@lucide/svelte/icons/menu";
-  import SquarePen from "@lucide/svelte/icons/square-pen";
+  import Menu from "./lib/icons/Menu.svelte";
+  import SquarePen from "./lib/icons/SquarePen.svelte";
   import Composer from "./components/Composer.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import ThreadList from "./components/ThreadList.svelte";

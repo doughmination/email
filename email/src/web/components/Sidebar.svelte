@@ -3,16 +3,16 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import FileText from "@lucide/svelte/icons/file-text";
-  import Globe from "@lucide/svelte/icons/globe";
-  import InboxIcon from "@lucide/svelte/icons/inbox";
-  import LogOut from "@lucide/svelte/icons/log-out";
-  import Send from "@lucide/svelte/icons/send";
-  import SettingsIcon from "@lucide/svelte/icons/settings";
-  import Shield from "@lucide/svelte/icons/shield";
-  import SquarePen from "@lucide/svelte/icons/square-pen";
-  import Star from "@lucide/svelte/icons/star";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import FileText from "../lib/icons/FileText.svelte";
+  import Globe from "../lib/icons/Globe.svelte";
+  import InboxIcon from "../lib/icons/Inbox.svelte";
+  import LogOut from "../lib/icons/LogOut.svelte";
+  import Send from "../lib/icons/Send.svelte";
+  import SettingsIcon from "../lib/icons/Settings.svelte";
+  import Shield from "../lib/icons/Shield.svelte";
+  import SquarePen from "../lib/icons/SquarePen.svelte";
+  import Star from "../lib/icons/Star.svelte";
+  import Trash2 from "../lib/icons/Trash2.svelte";
   import type { ListFolder } from "../../shared/types";
   import { api } from "../lib/api";
   import { router } from "../lib/router.svelte";

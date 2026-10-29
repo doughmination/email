@@ -3,7 +3,7 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import ArrowLeft from "../lib/icons/ArrowLeft.svelte";
   import type { Snippet } from "svelte";
   import { router } from "../lib/router.svelte";
 

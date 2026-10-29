@@ -3,10 +3,10 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import Globe from "@lucide/svelte/icons/globe";
-  import Plus from "@lucide/svelte/icons/plus";
-  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
-  import Trash from "@lucide/svelte/icons/trash";
+  import Globe from "../lib/icons/Globe.svelte";
+  import Plus from "../lib/icons/Plus.svelte";
+  import RefreshCw from "../lib/icons/RefreshCw.svelte";
+  import Trash from "../lib/icons/Trash.svelte";
   import type { AliasInfo, DomainInfo, UserInfo } from "../../shared/types";
   import { api } from "../lib/api";
   import { loadSession, session } from "../lib/state.svelte";
