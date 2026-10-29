@@ -19,7 +19,7 @@
   it's mostly tracking pixels.
 -->
 <script lang="ts">
-  import ImageIcon from "@lucide/svelte/icons/image";
+  import ImageIcon from "../lib/icons/Image.svelte";
   import type { AttachmentInfo } from "../../shared/types";
   import { api } from "../lib/api";
 

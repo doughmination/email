@@ -3,9 +3,9 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import Bell from "@lucide/svelte/icons/bell";
-  import ChevronRight from "@lucide/svelte/icons/chevron-right";
-  import ShieldCheck from "@lucide/svelte/icons/shield-check";
+  import Bell from "../lib/icons/Bell.svelte";
+  import ChevronRight from "../lib/icons/ChevronRight.svelte";
+  import ShieldCheck from "../lib/icons/ShieldCheck.svelte";
   import { onMount } from "svelte";
   import { api } from "../lib/api";
   import { router } from "../lib/router.svelte";

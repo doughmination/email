@@ -3,16 +3,16 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
-  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import Forward from "@lucide/svelte/icons/forward";
-  import MailOpen from "@lucide/svelte/icons/mail-open";
-  import Paperclip from "@lucide/svelte/icons/paperclip";
-  import Pencil from "@lucide/svelte/icons/pencil";
-  import Reply from "@lucide/svelte/icons/reply";
-  import Star from "@lucide/svelte/icons/star";
-  import Trash from "@lucide/svelte/icons/trash";
+  import ArchiveRestore from "../lib/icons/ArchiveRestore.svelte";
+  import ArrowLeft from "../lib/icons/ArrowLeft.svelte";
+  import ChevronDown from "../lib/icons/ChevronDown.svelte";
+  import Forward from "../lib/icons/Forward.svelte";
+  import MailOpen from "../lib/icons/MailOpen.svelte";
+  import Paperclip from "../lib/icons/Paperclip.svelte";
+  import Pencil from "../lib/icons/Pencil.svelte";
+  import Reply from "../lib/icons/Reply.svelte";
+  import Star from "../lib/icons/Star.svelte";
+  import Trash from "../lib/icons/Trash.svelte";
   import type { Message, Thread } from "../../shared/types";
   import { SvelteSet } from "svelte/reactivity";
   import { api } from "../lib/api";
@@ -383,7 +383,7 @@
 
   pre {
     margin: 0;
-    font-family: var(--font);
+    font-family: var(--mono);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

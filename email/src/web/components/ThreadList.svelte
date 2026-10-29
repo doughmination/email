@@ -3,15 +3,15 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
-  import CircleX from "@lucide/svelte/icons/circle-x";
-  import Eye from "@lucide/svelte/icons/eye";
-  import Mail from "@lucide/svelte/icons/mail";
-  import MailOpen from "@lucide/svelte/icons/mail-open";
-  import Paperclip from "@lucide/svelte/icons/paperclip";
-  import Star from "@lucide/svelte/icons/star";
-  import StarOff from "@lucide/svelte/icons/star-off";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import ArchiveRestore from "../lib/icons/ArchiveRestore.svelte";
+  import CircleX from "../lib/icons/CircleX.svelte";
+  import Eye from "../lib/icons/Eye.svelte";
+  import Mail from "../lib/icons/Mail.svelte";
+  import MailOpen from "../lib/icons/MailOpen.svelte";
+  import Paperclip from "../lib/icons/Paperclip.svelte";
+  import Star from "../lib/icons/Star.svelte";
+  import StarOff from "../lib/icons/StarOff.svelte";
+  import Trash2 from "../lib/icons/Trash2.svelte";
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
   import type { ListFolder, ThreadSummary } from "../../shared/types";

@@ -7,35 +7,69 @@
 /* Global tokens and base only; components carry their own scoped styles.
    The look follows ~/projects/web (theme.css, header.css, contact.css):
    translucent raised surfaces, hairline borders, rounded cards that pick up
-   an accent ring on hover, pill buttons. The font stays Comic Code.
+   an accent ring on hover, pill buttons. IBM Plex Sans for text and Comic Code
+   for monospace, as on doughmination.gay.
 
    Email content never sees any of this: it renders inside EmailFrame's
    iframe, which is also what keeps an email's fonts and styles off the app. */
 
+/* IBM Plex Sans for text, as on doughmination.gay; Comic Code for anything monospace */
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("./fonts/IBMPlexSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("./fonts/IBMPlexSans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("./fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("./fonts/IBMPlexSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Comic Code";
-  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Regular.woff2") format("woff2");
+  src: url("https://raw.doughmination.gay/f/Comic-Code/woff2/ComicCode-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Comic Code";
-  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Italic.woff2") format("woff2");
+  src: url("https://raw.doughmination.gay/f/Comic-Code/woff2/ComicCode-Italic.woff2") format("woff2");
   font-weight: 400;
   font-style: italic;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Comic Code";
-  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Medium.woff2") format("woff2");
+  src: url("https://raw.doughmination.gay/f/Comic-Code/woff2/ComicCode-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Comic Code";
-  src: url("https://m.doughmination.gay/f/Comic-Code/woff2/ComicCode-Bold.woff2") format("woff2");
+  src: url("https://raw.doughmination.gay/f/Comic-Code/woff2/ComicCode-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -59,7 +93,8 @@
   --star: #f7c948;
   --radius: 1rem;
   --radius-sm: 0.5rem;
-  --font: "Comic Code", ui-monospace, monospace;
+  --font: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "Comic Code", ui-monospace, "Cascadia Code", Menlo, monospace;
 
   color-scheme: dark;
 }
@@ -294,4 +329,17 @@ h3 {
     transition: none !important;
     animation: none !important;
   }
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--mono);
+}
+
+/* iconsax renders its <svg> inside the element */
+iconsax-icon {
+  display: inline-flex;
+  flex-shrink: 0;
 }

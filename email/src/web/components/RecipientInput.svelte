@@ -3,7 +3,7 @@
      Licensed under the DASL-1.0 Licence.
      See LICENCE.md in the project root for full licence information. -->
 <script lang="ts">
-  import X from "@lucide/svelte/icons/x";
+  import X from "../lib/icons/X.svelte";
   import { displayName, isAddress, splitList } from "../lib/format";
 
   let { value = $bindable(), label, placeholder = "" }: { value: string[]; label: string; placeholder?: string } =
