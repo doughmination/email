@@ -3,6 +3,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { requireUser, sameOrigin, type AppEnv } from "./middleware";
 import { admin } from "./routes/admin";
 import { auth } from "./routes/auth";
+import { download } from "./routes/download";
 import { mail } from "./routes/mail";
 import { webhook } from "./routes/webhook";
 import { sweepOrphanUploads } from "./services/attachments";
@@ -11,11 +12,12 @@ import { LiveHub } from "./services/live";
 import { purgeBin } from "./services/messages";
 import { sweepExpired } from "./services/sessions";
 
-// Only /api, /auth and /webhook reach the Worker (see run_worker_first in
+// Only /api, /auth, /webhook and /download reach the Worker (see run_worker_first in
 // wrangler.jsonc); the Svelte app is served straight from assets.
 const app = new Hono<AppEnv>()
   .use(secureHeaders({ referrerPolicy: "no-referrer", crossOriginResourcePolicy: "same-origin" }))
   .route("/webhook", webhook)
+  .route("/download", download)
   .use(sameOrigin)
   .route("/auth", auth)
   .use("/api/*", requireUser)

@@ -7,6 +7,7 @@
   import Globe from "../lib/icons/Globe.svelte";
   import InboxIcon from "../lib/icons/Inbox.svelte";
   import LogOut from "../lib/icons/LogOut.svelte";
+  import Mobile from "../lib/icons/Mobile.svelte";
   import Send from "../lib/icons/Send.svelte";
   import SettingsIcon from "../lib/icons/Settings.svelte";
   import Shield from "../lib/icons/Shield.svelte";
@@ -109,6 +110,8 @@
 
   <ul class="bottom">
     <li><a class="item" class:active={route.name === "settings" || route.name === "privacy" || route.name === "terms"} href={router.href("/settings")}><SettingsIcon size={16} /> <span class="label">Settings</span></a></li>
+    <!-- `download` keeps the router from treating it as a page in the app. -->
+    <li><a class="item" href="/download" download><Mobile size={16} /> <span class="label">Get the Android app</span></a></li>
     {#if session.me?.isAdmin}
       <li><a class="item" class:active={route.name === "admin"} href={router.href("/admin")}><Shield size={16} /> <span class="label">Admin</span></a></li>
     {/if}
