@@ -65,38 +65,45 @@ jobs:
         if: env.GOOGLE_SERVICES_JSON != ''
         run: echo "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
 
+      # Tags are named by version (v1.2.0 builds 1.2.0); everything else is 1.0.<run>.
+      - name: Version
+        env:
+          TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+        run: |
+          version=${TAG#v}
+          echo "VERSION_NAME=${version:-1.0.$GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
       - name: Build
         env:
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('1.0.{0}', github.run_number) }}
         run: ./gradlew assembleRelease --console=plain
 
       - name: Rename APK
         run: |
           src=$(ls app/build/outputs/apk/release/*.apk)
-          mv "$src" inbox.apk
+          mv "$src" "inbox-$VERSION_NAME.apk"
+          echo "APK=inbox-$VERSION_NAME.apk" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: inbox-apk
-          path: app/inbox.apk
+          name: inbox-${{ env.VERSION_NAME }}
+          path: app/${{ env.APK }}
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" inbox.apk --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "$APK" --generate-notes
 
-      # A rolling "latest" release that always holds the newest build from main,
-      # so releases/download/latest/inbox.apk is a link that never changes.
+      # A rolling "latest" release that always holds the newest build from main.
+      # The site's /download link redirects to its APK, whatever it's named.
       - name: Publish rolling latest
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_SIGNING_KEY == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION_NAME: 1.0.${{ github.run_number }}
         run: |
           gh release delete latest --cleanup-tag --yes || true
-          gh release create latest inbox.apk \
+          gh release create latest "$APK" \
             --target "$GITHUB_SHA" \
             --title "Latest build ($VERSION_NAME)" \
             --notes "Built from ${GITHUB_SHA::7} on main. Installs over any earlier build." \
