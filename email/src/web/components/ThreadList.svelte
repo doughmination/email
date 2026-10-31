@@ -18,6 +18,7 @@
   import { api } from "../lib/api";
   import { displayName, fmtTime } from "../lib/format";
   import { router } from "../lib/router.svelte";
+  import { hideSplash } from "../lib/splash";
   import { changed, session } from "../lib/state.svelte";
   import ActionMenu, { type MenuItem } from "./ActionMenu.svelte";
   import SwipeRow, { type HoldPoint, type SwipeAction } from "./SwipeRow.svelte";
@@ -46,7 +47,10 @@
         cursor = page.nextCursor;
       })
       .catch((e: Error) => gen === generation && (error = e.message))
-      .finally(() => gen === generation && (loading = false));
+      .finally(() => {
+        if (gen === generation) loading = false;
+        hideSplash();
+      });
   });
 
   async function more() {

@@ -33,8 +33,9 @@
       .then(() => !isDemo && startLive())
       .catch((e: Error) => (error = e.message));
   });
+  // A folder waits for its first page of mail (ThreadList hides it then).
   $effect(() => {
-    if (session.me || error || legal) hideSplash();
+    if ((session.me && route.name !== "folder") || error || legal) hideSplash();
   });
 
   const reading = $derived(route.name === "folder" && route.threadId !== null);

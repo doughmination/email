@@ -5,7 +5,9 @@
  */
 
 // Long enough for the intro in index.html to play through once.
-const introMs = 1100;
+const introMs = 1150;
+// A slow connection gets the app (and its spinner) after this long.
+const maxMs = 4000;
 
 // The installed app (PWA or the Android TWA) always plays the intro.
 const installed =
@@ -14,7 +16,7 @@ const installed =
 
 let hidden = false;
 
-/** Fades the splash out once the app is ready. In a browser tab, right away. */
+/** Lifts the splash away once mail is in. In a browser tab, right away. */
 export function hideSplash() {
   if (hidden) return;
   hidden = true;
@@ -24,6 +26,8 @@ export function hideSplash() {
   const wait = installed ? Math.max(0, introMs - performance.now()) : 0;
   setTimeout(() => {
     splash.classList.add("out");
-    setTimeout(() => splash.remove(), 600);
+    setTimeout(() => splash.remove(), 450);
   }, wait);
 }
+
+setTimeout(hideSplash, maxMs);

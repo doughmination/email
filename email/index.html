@@ -65,8 +65,9 @@
         }
       }
     </script>
-    <!-- Splash: inline so it paints before the bundle loads. Frame one is the
-         Android splash (the icon at 128px), so the hand-off doesn't jump. -->
+    <!-- Splash: inline so it paints before the bundle loads. The same as the
+         Android app's: the mascot flies up into its disc while the envelope
+         drops onto its string, hovers until mail is in, then lifts away. -->
     <style>
       #splash {
         position: fixed;
@@ -75,124 +76,193 @@
         display: grid;
         place-items: center;
         background: #0b0a0d;
-        transition: opacity 0.35s ease 0.1s;
+      }
+
+      #splash .disc {
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: #f1e4ea;
       }
 
       #splash svg {
-        width: 128px;
-        height: 128px;
+        width: 100%;
+        height: 100%;
         overflow: visible;
       }
 
-      #splash .icon {
-        transform-origin: 256px 256px;
-        animation: splash-breathe 0.6s ease-in-out 0.15s;
+      #splash * {
+        transform-box: view-box;
       }
 
-      #splash .glow {
-        animation: splash-glow 0.9s ease-in-out 0.15s;
+      #splash .m {
+        transform-origin: 260px 268px;
+        animation:
+          splash-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+          splash-bob 1.4s ease-in-out 0.9s infinite;
       }
 
-      #splash .envelope {
-        transform-origin: 256px 372px;
-        animation: splash-hop 0.6s cubic-bezier(0.3, 0, 0.3, 1) 0.15s;
+      #splash .wing-l {
+        transform-origin: 140px 228px;
+        animation:
+          splash-flap-l 0.3s ease-in-out 3,
+          splash-flap-l 0.7s ease-in-out 0.9s infinite;
       }
 
-      #splash .flap {
-        stroke-dasharray: 360;
-        animation: splash-seal 0.5s ease-in-out 0.3s both;
+      #splash .wing-r {
+        transform-origin: 372px 228px;
+        animation:
+          splash-flap-r 0.3s ease-in-out 3,
+          splash-flap-r 0.7s ease-in-out 0.9s infinite;
+      }
+
+      #splash .env {
+        transform-origin: 256px 300px;
+        animation:
+          splash-drop 0.8s cubic-bezier(0.3, 1.5, 0.5, 1) 0.35s both,
+          splash-swing 1.4s linear 1.15s infinite;
       }
 
       #splash.out {
-        opacity: 0;
+        animation: splash-lift 0.45s cubic-bezier(0.5, 0, 0.75, 0) forwards;
         pointer-events: none;
       }
 
-      #splash.out .icon {
-        animation: splash-zoom 0.45s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+      @keyframes splash-rise {
+        from {
+          transform: translateY(70px);
+          opacity: 0;
+        }
       }
 
-      @keyframes splash-breathe {
+      @keyframes splash-bob {
         50% {
-          transform: scale(1.06);
+          transform: translateY(-14px);
         }
       }
 
-      @keyframes splash-glow {
+      @keyframes splash-flap-l {
         50% {
-          filter: brightness(1.6);
+          transform: rotate(-24deg) scaleX(0.85);
         }
       }
 
-      @keyframes splash-hop {
-        35% {
-          transform: translateY(-34px) scale(0.97, 1.04);
-        }
-        70% {
-          transform: translateY(0) scale(1.05, 0.94);
+      @keyframes splash-flap-r {
+        50% {
+          transform: rotate(24deg) scaleX(0.85);
         }
       }
 
-      @keyframes splash-seal {
-        0% {
-          stroke-dashoffset: 0;
+      @keyframes splash-drop {
+        from {
+          transform: translateY(-170px) scale(0.6);
+          opacity: 0;
         }
-        45% {
-          stroke-dashoffset: 360;
+        40% {
+          opacity: 1;
         }
+      }
+
+      @keyframes splash-swing {
+        0%,
         100% {
-          stroke-dashoffset: 0;
+          transform: rotate(0);
+        }
+        25% {
+          transform: rotate(7deg);
+        }
+        75% {
+          transform: rotate(-7deg);
         }
       }
 
-      @keyframes splash-zoom {
+      @keyframes splash-lift {
         to {
-          transform: scale(1.35);
+          transform: translateY(-100%);
+        }
+      }
+
+      @keyframes splash-fade {
+        to {
+          opacity: 0;
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        #splash *,
-        #splash.out .icon {
+        #splash * {
           animation: none !important;
+        }
+
+        #splash.out {
+          animation-name: splash-fade;
         }
       }
     </style>
   </head>
   <body>
     <div id="splash" aria-hidden="true">
-      <svg viewBox="0 0 512 512">
-        <defs>
-          <linearGradient id="splash-bg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#1c1721" />
-            <stop offset="1" stop-color="#0b0a0d" />
-          </linearGradient>
-          <radialGradient id="splash-glow" cx="0.15" cy="0.1" r="0.9">
-            <stop offset="0" stop-color="#eb459e" stop-opacity="0.35" />
-            <stop offset="1" stop-color="#eb459e" stop-opacity="0" />
-          </radialGradient>
-          <linearGradient id="splash-env" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#f45fae" />
-            <stop offset="1" stop-color="#d42f86" />
-          </linearGradient>
-        </defs>
-        <g class="icon">
-          <rect width="512" height="512" rx="112" fill="url(#splash-bg)" />
-          <rect class="glow" width="512" height="512" rx="112" fill="url(#splash-glow)" />
-          <g class="envelope">
-            <rect x="88" y="140" width="336" height="232" rx="40" fill="url(#splash-env)" />
-            <path
-              class="flap"
-              d="M120 180 L256 284 L392 180"
-              fill="none"
-              stroke="#fff1f8"
-              stroke-width="30"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+      <div class="disc">
+        <svg viewBox="-29 -21 578 578">
+          <defs>
+            <clipPath id="splash-hole">
+              <path clip-rule="evenodd" d="M0 0H512V512H0Z M198 250a58 58 0 1 0 116 0a58 58 0 1 0 -116 0Z" />
+            </clipPath>
+            <path id="splash-glaze" d="M394 250 L395 254 L395 257 L396 261 L396 265 L396 268 L395 272 L394 276 L393 279 L392 283 L390 286 L388 289 L386 292 L384 295 L382 298 L380 301 L378 304 L375 307 L373 310 L371 313 L369 316 L368 318 L366 321 L365 325 L363 328 L362 332 L363 337 L368 345 L375 357 L375 363 L364 358 L356 355 L351 355 L347 357 L345 359 L342 362 L339 364 L336 366 L332 368 L329 369 L326 371 L323 373 L320 376 L319 382 L320 394 L322 408 L320 417 L311 405 L302 392 L296 384 L291 380 L287 378 L283 379 L280 379 L277 381 L273 382 L270 383 L267 384 L263 386 L260 388 L256 394 L252 404 L247 413 L244 403 L241 394 L237 391 L234 389 L230 388 L227 387 L223 386 L220 384 L217 382 L214 381 L210 379 L207 378 L203 379 L196 385 L186 398 L174 411 L173 403 L179 384 L182 370 L183 363 L181 359 L178 357 L175 356 L172 354 L168 353 L165 351 L162 349 L158 348 L155 346 L151 345 L145 345 L135 348 L121 354 L118 350 L127 338 L134 330 L135 324 L135 320 L135 316 L134 312 L133 309 L133 305 L132 301 L132 298 L131 294 L129 291 L125 289 L114 288 L108 285 L117 279 L123 275 L125 271 L124 267 L123 264 L122 261 L120 257 L119 254 L118 250 L117 246 L117 243 L116 239 L116 235 L116 232 L117 228 L118 224 L119 221 L120 217 L122 214 L124 211 L126 208 L128 205 L130 202 L132 199 L134 196 L137 193 L139 190 L141 187 L143 184 L144 182 L146 179 L148 175 L149 172 L150 169 L152 166 L153 162 L155 159 L157 156 L158 152 L160 149 L163 146 L165 143 L167 141 L170 138 L173 136 L176 134 L180 132 L183 131 L186 130 L190 129 L194 128 L197 127 L201 127 L205 126 L208 126 L212 125 L215 125 L219 124 L222 123 L225 123 L229 122 L232 121 L235 119 L239 118 L242 117 L245 116 L249 114 L252 113 L256 112 L260 111 L263 111 L267 110 L271 110 L274 110 L278 111 L282 112 L285 113 L289 114 L292 116 L295 118 L298 120 L301 122 L304 124 L307 126 L310 128 L313 131 L316 133 L319 135 L322 137 L324 138 L327 140 L331 142 L334 143 L337 144 L340 146 L344 147 L347 149 L350 151 L354 152 L357 154 L360 157 L363 159 L365 161 L368 164 L370 167 L372 170 L374 174 L375 177 L376 180 L377 184 L378 188 L379 191 L379 195 L380 199 L380 202 L381 206 L381 209 L382 213 L383 216 L383 219 L384 223 L385 226 L387 229 L388 233 L389 236 L390 239 L392 243 L393 246Z" />
+            <path id="splash-spark" d="M0 -15C1.7 0 1.7 0 10 2C1.7 3.7 1.7 3.7 0 14C-1.7 3.7 -1.7 3.7 -10 2C-1.7 0 -1.7 0 0 -15Z" />
+          </defs>
+          <g class="m">
+            <g class="env">
+              <g fill="none" stroke-linecap="round">
+                <path d="M256 300V380" stroke="#0b0c1c" stroke-width="32"/>
+                <path d="M256 300V380" stroke="#565b9d" stroke-width="16"/>
+              </g>
+              <rect x="180" y="380" width="152" height="104" rx="14" fill="#383dcd" stroke="#0b0c1c" stroke-width="10"/>
+              <path d="M196 398L256 442L316 398" fill="none" stroke="#0b0c1c" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M196 398L256 442L316 398" fill="none" stroke="#f1e4ea" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <g transform="translate(256 192) scale(.72) translate(-256 -250)">
+              <g class="wing-l">
+                <path d="M140 170 C80 120 20 100 -36 96 C-14 134 -18 168 -34 198 C2 186 22 206 18 246 C46 226 74 238 80 282 C100 262 124 266 140 286 Z" fill="#1c1f42" stroke="#0b0c1c" stroke-width="12" stroke-linejoin="round"/>
+                <path d="M128 182 C70 140 10 118 -26 108" fill="none" stroke="#565b9d" stroke-width="6" stroke-linecap="round"/>
+              </g>
+              <g class="wing-r">
+                <path d="M372 170 C432 120 492 100 548 96 C526 134 530 168 546 198 C510 186 490 206 494 246 C466 226 438 238 432 282 C412 262 388 266 372 286 Z" fill="#1c1f42" stroke="#0b0c1c" stroke-width="12" stroke-linejoin="round"/>
+                <path d="M384 182 C442 140 502 118 538 108" fill="none" stroke="#565b9d" stroke-width="6" stroke-linecap="round"/>
+              </g>
+              <g>
+                <g clip-path="url(#splash-hole)">
+                  <circle cx="256" cy="260" r="180" fill="#0b0c1c"/>
+                  <circle cx="256" cy="250" r="180" fill="#0b0c1c"/>
+                  <circle cx="256" cy="260" r="170" fill="#565b9d"/>
+                  <circle cx="256" cy="250" r="170" fill="#929cc0"/>
+                  <use href="#splash-glaze" fill="#0b0c1c" transform="translate(0 8)"/>
+                  <use href="#splash-glaze" fill="#1c1f42"/>
+                  <path d="M150 196 A118 118 0 0 1 238 134" fill="none" stroke="#565b9d" stroke-width="12" stroke-linecap="round"/>
+                  <use href="#splash-spark" x="330" y="174" fill="#cfd7f3"/>
+                  <use href="#splash-spark" x="300" y="334" fill="#f1e4ea"/>
+                  <use href="#splash-spark" x="162" y="280" fill="#cfd7f3"/>
+                  <use href="#splash-spark" x="232" y="148" fill="#7491ce"/>
+                  <rect x="342" y="258" width="28" height="8" rx="4" fill="#7491ce" transform="rotate(-50 356 262)"/>
+                  <rect x="198" y="334" width="28" height="8" rx="4" fill="#7491ce" transform="rotate(20 212 338)"/>
+                  <rect x="154" y="194" width="28" height="8" rx="4" fill="#f1e4ea" transform="rotate(40 168 198)"/>
+                  <rect x="278" y="142" width="28" height="8" rx="4" fill="#f1e4ea" transform="rotate(60 292 146)"/>
+                  <rect x="136" y="232" width="28" height="8" rx="4" fill="#7491ce" transform="rotate(95 150 236)"/>
+                  <rect x="358" y="208" width="28" height="8" rx="4" fill="#cfd7f3" transform="rotate(-30 372 212)"/>
+                </g>
+                <circle cx="256" cy="250" r="63" fill="none" stroke="#0b0c1c" stroke-width="10"/>
+                <circle cx="256" cy="250" r="58" fill="none" stroke="#565b9d" stroke-width="6"/>
+              </g>
+            </g>
+            <g>
+              <path d="M404 370A50 50 0 1 0 404 470A65 65 0 0 1 404 370Z" fill="#cfd7f3" stroke="#0b0c1c" stroke-width="10" stroke-linejoin="round" transform="translate(40 0) rotate(-25 404 420)"/>
+            </g>
+            <g>
+              <path d="M92 368C95.96 408.04 95.96 408.04 118.4 412C95.96 415.96 95.96 415.96 92 442.8C88.04 415.96 88.04 415.96 65.6 412C88.04 408.04 88.04 408.04 92 368Z" fill="#7491ce" stroke="#0b0c1c" stroke-width="8" stroke-linejoin="round"/>
+              <path d="M464 288C467 315 467 315 482 318C467 321 467 321 464 339C461 321 461 321 446 318C461 315 461 315 464 288Z" fill="#f1e4ea" stroke="#0b0c1c" stroke-width="6" stroke-linejoin="round"/>
+            </g>
           </g>
-        </g>
-      </svg>
+        </svg>
+      </div>
     </div>
     <div id="app"></div>
     <script type="module" src="/src/web/main.ts"></script>
