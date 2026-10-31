@@ -8,4 +8,5 @@
   let props: { size?: number; class?: string; [key: string]: unknown } = $props();
 </script>
 
-<Icon name="arrow-right-01" {...props} />
+<!-- Material "chevron_right" -->
+<Icon svg={`<path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z"/>`} {...props} />

@@ -5,9 +5,10 @@
 <script lang="ts">
   import ArchiveRestore from "../lib/icons/ArchiveRestore.svelte";
   import ArrowLeft from "../lib/icons/ArrowLeft.svelte";
-  import ChevronDown from "../lib/icons/ChevronDown.svelte";
+  import CircleX from "../lib/icons/CircleX.svelte";
   import Forward from "../lib/icons/Forward.svelte";
-  import MailOpen from "../lib/icons/MailOpen.svelte";
+  import LoaderCircle from "../lib/icons/LoaderCircle.svelte";
+  import MarkUnread from "../lib/icons/MarkUnread.svelte";
   import Paperclip from "../lib/icons/Paperclip.svelte";
   import Pencil from "../lib/icons/Pencil.svelte";
   import Reply from "../lib/icons/Reply.svelte";
@@ -80,15 +81,13 @@
   const last = $derived(thread?.messages.filter((m) => m.folder !== "drafts").at(-1) ?? thread?.messages.at(-1));
   const hasInbound = $derived(thread?.messages.some((m) => m.folder === "inbox") ?? false);
 
-  /** Newest first. The API sends them oldest first. */
-  const newestFirst = $derived(thread ? [...thread.messages].sort((a, b) => b.sentAt - a.sentAt) : []);
-  const newestId = $derived(newestFirst[0]?.id);
-  /** Older messages the user has opened; the newest is always open. */
+  /** Oldest first, as the API sends them and the app shows them. */
+  const newestId = $derived(thread?.messages.at(-1)?.id);
+  /** Messages the user has opened or closed. The newest and unread ones start open. */
   const opened = new SvelteSet<string>();
-  const isOpen = (m: Message) => m.id === newestId || opened.has(m.id);
+  const isOpen = (m: Message) => (m.id === newestId || !m.read) !== opened.has(m.id);
 
   function toggle(m: Message) {
-    if (m.id === newestId) return;
     if (opened.has(m.id)) opened.delete(m.id);
     else opened.add(m.id);
   }
@@ -158,9 +157,6 @@
     }
   }
 
-  /** "Ari Lane" for "Ari Lane <ari@x.y>", or the address when there's no name. */
-  const names = (list: string[]) => list.map(displayName).join(", ");
-
   const files = (m: Message) => m.attachments.filter((a) => !a.contentId || !m.html?.includes(a.contentId));
   const isImage = (type: string) => /^image\/(png|jpe?g|gif|webp|avif|bmp)$/i.test(type);
 </script>
@@ -168,19 +164,19 @@
 <svelte:window {onkeydown} />
 
 <article class="view">
-  <!-- Phones: back arrow on the left, icon actions on the right. -->
+  <!-- Phones: the app's top bar, back on the left and actions on the right. -->
   <div class="topbar">
-    <button class="tb" aria-label="Back" onclick={() => router.thread(null)}><ArrowLeft size={20} /></button>
+    <button class="tb" aria-label="Back" onclick={() => router.thread(null)}><ArrowLeft size={24} /></button>
     {#if thread && bin}
-      <button class="tb" aria-label="Restore" title="Restore" onclick={restoreThread}><ArchiveRestore size={20} /></button>
+      <button class="tb" aria-label="Restore" title="Restore" onclick={restoreThread}><ArchiveRestore size={24} /></button>
       <button
         class="tb"
         class:armed={confirming === "thread"}
-        aria-label="Delete forever"
-        title={confirming === "thread" ? "Press again to delete forever" : "Delete forever"}
+        aria-label={confirming === "thread" ? "Tap again to delete forever" : "Delete forever"}
+        title={confirming === "thread" ? "Tap again to delete forever" : "Delete forever"}
         onclick={removeThread}
       >
-        <Trash size={20} />
+        <CircleX size={24} />
       </button>
     {:else if thread && last}
       <button
@@ -190,310 +186,301 @@
         aria-pressed={thread.starred}
         onclick={toggleStar}
       >
-        <Star size={20} fill={thread.starred ? "currentColor" : "none"} />
+        <Star size={24} fill={thread.starred ? "currentColor" : "none"} />
       </button>
-      <button class="tb" aria-label="Move to Bin" title="Move to Bin" onclick={removeThread}><Trash size={20} /></button>
       {#if hasInbound}
-        <button class="tb" aria-label="Mark unread" title="Mark unread" onclick={markUnread}><MailOpen size={20} /></button>
+        <button class="tb" aria-label="Mark as unread" title="Mark as unread" onclick={markUnread}><MarkUnread size={24} /></button>
       {/if}
+      <button class="tb" aria-label="Move to Bin" title="Move to Bin" onclick={removeThread}><Trash size={24} /></button>
     {/if}
   </div>
-  {#if bin && confirming === "thread"}<p class="armed-note error">Tap the bin again to delete forever.</p>{/if}
 
   {#if error}
-    <p class="error">{error}</p>
+    <p class="error pad">{error}</p>
   {:else if !thread}
-    <p class="muted">Loading…</p>
+    <p class="loading"><LoaderCircle size={40} /></p>
   {:else}
     <h2>{thread.subject || "(no subject)"}</h2>
 
+    <!-- Wide screens have no top bar, so the thread's actions sit here. -->
     {#if bin}
       <div class="actions">
-        <button class="btn accent" onclick={restoreThread}><ArchiveRestore size={14} /> Restore</button>
+        <button class="btn accent" onclick={restoreThread}><ArchiveRestore size={18} /> Restore</button>
         <button class="btn danger" title="Delete forever (Del)" onclick={removeThread}>
-          <Trash size={14} />
-          {confirming === "thread" ? "Press again to delete forever" : "Delete forever"}
+          <CircleX size={18} />
+          {confirming === "thread" ? "Click again to delete forever" : "Delete forever"}
         </button>
       </div>
     {:else if last}
       <div class="actions">
-        <button class="btn accent" title="Reply (R)" onclick={() => composeReply(last)}><Reply size={14} /> Reply</button>
-        <button class="btn" title="Forward (F)" onclick={() => composeForward(last)}><Forward size={14} /> Forward</button>
+        <button class="btn accent" title="Reply (R)" onclick={() => composeReply(last)}><Reply size={18} /> Reply</button>
+        <button class="btn" title="Forward (F)" onclick={() => composeForward(last)}><Forward size={18} /> Forward</button>
         <button class="btn" class:starred={thread.starred} aria-pressed={thread.starred} onclick={toggleStar}>
-          <Star size={14} fill={thread.starred ? "currentColor" : "none"} />
+          <Star size={18} fill={thread.starred ? "currentColor" : "none"} />
           {thread.starred ? "Starred" : "Star"}
         </button>
         {#if hasInbound}
-          <button class="btn" onclick={markUnread}><MailOpen size={14} /> Mark unread</button>
+          <button class="btn" onclick={markUnread}><MarkUnread size={18} /> Mark as unread</button>
         {/if}
-        <button class="btn danger" title="Move to Bin (Del)" onclick={removeThread}><Trash size={14} /> Delete</button>
+        <button class="btn danger" title="Move to Bin (Del)" onclick={removeThread}><Trash size={18} /> Move to Bin</button>
       </div>
     {/if}
 
-    {#each newestFirst as m (m.id)}
+    {#each thread.messages as m (m.id)}
       {@const open = isOpen(m)}
-      <section class="message" class:draft={m.folder === "drafts"} class:collapsed={!open}>
-        <header>
-          <button
-            class="summary"
-            onclick={() => toggle(m)}
-            disabled={m.id === newestId}
-            aria-expanded={open}
-            title={m.id === newestId ? undefined : open ? "Collapse" : "Expand"}
-          >
-            <span class="badge {m.folder}">{m.folder === "inbox" ? "received" : m.folder === "sent" ? "sent" : "draft"}</span>
-            <strong title={m.from}>{displayName(m.from)}</strong>
-            {#if open}
-              {#if displayName(m.from) !== bareAddress(m.from)}<span class="muted">&lt;{bareAddress(m.from)}&gt;</span>{/if}
-              <span class="muted" title={[...m.to, ...m.cc, ...m.bcc].join(", ")}>
-                to {names(m.to)}{m.cc.length ? `, cc ${names(m.cc)}` : ""}{m.bcc.length ? `, bcc ${names(m.bcc)}` : ""}
-              </span>
-            {:else}
-              <span class="muted snippet">{m.snippet}</span>
-            {/if}
-          </button>
-          <div class="right">
-            <time class="muted">{open ? new Date(m.sentAt).toLocaleString() : fmtTime(m.sentAt)}</time>
-            {#if open}
-              {#if m.folder === "drafts" && !bin}
-                <button class="btn icon" title="Edit draft" onclick={() => composeDraft(m)}><Pencil size={14} /></button>
-              {/if}
-              {#if bin}
-                <button class="btn icon" title="Restore this message" onclick={() => restoreMessage(m)}>
-                  <ArchiveRestore size={14} />
-                </button>
-              {/if}
-              <button
-                class="btn icon"
-                class:danger={confirming === m.id}
-                title={confirming === m.id ? "Click again to delete forever" : bin ? "Delete forever" : "Move to Bin"}
-                onclick={() => removeMessage(m)}
-              >
-                <Trash size={14} />
-              </button>
-            {/if}
-            {#if m.id !== newestId}
-              <button class="btn icon chevron" class:open title={open ? "Collapse" : "Expand"} onclick={() => toggle(m)}>
-                <ChevronDown size={14} />
-              </button>
-            {/if}
-          </div>
-        </header>
+      {@const draft = m.folder === "drafts"}
+      <!-- The app's message card: tap the header to open or close it. -->
+      <section class="message">
+        <button class="head" onclick={() => toggle(m)} aria-expanded={open}>
+          <span class="top">
+            <strong class:draft title={m.from}>{draft ? "Draft" : displayName(m.from)}</strong>
+            <time title={new Date(m.sentAt).toLocaleString()}>{fmtTime(m.sentAt)}</time>
+          </span>
+          {#if !open}
+            <span class="line">{m.snippet}</span>
+          {:else}
+            <span class="small">{bareAddress(m.from)}</span>
+            {#if m.to.length}<span class="small">To: {m.to.join(", ")}</span>{/if}
+            {#if m.cc.length}<span class="small">Cc: {m.cc.join(", ")}</span>{/if}
+            {#if m.bcc.length}<span class="small">Bcc: {m.bcc.join(", ")}</span>{/if}
+          {/if}
+        </button>
 
         {#if open}
-        {#if m.html}
-          <EmailFrame html={m.html} attachments={m.attachments} />
-        {:else}
-          <pre>{m.text ?? "(empty message)"}</pre>
-        {/if}
+          {#if m.html}
+            <EmailFrame html={m.html} attachments={m.attachments} />
+          {:else}
+            <pre>{m.text ?? "(empty message)"}</pre>
+          {/if}
 
-        {#if files(m).length}
-          <ul class="files">
-            {#each files(m) as a (a.id)}
-              <li>
-                {#if isImage(a.contentType)}
-                  <a href={api.attachmentUrl(a.id, true)} target="_blank" rel="noopener">
-                    <img src={api.attachmentUrl(a.id, true)} alt={a.filename} />
+          {#if files(m).length}
+            <ul class="files">
+              {#each files(m) as a (a.id)}
+                <li>
+                  {#if isImage(a.contentType)}
+                    <a class="preview" href={api.attachmentUrl(a.id, true)} target="_blank" rel="noopener">
+                      <img src={api.attachmentUrl(a.id, true)} alt={a.filename} />
+                    </a>
+                  {/if}
+                  <a class="chip" href={api.attachmentUrl(a.id)} download={a.filename}>
+                    <Paperclip size={18} />
+                    <span>{a.filename} · {fmtSize(a.size)}</span>
                   </a>
-                {/if}
-                <a href={api.attachmentUrl(a.id)} download={a.filename}><Paperclip size={12} /> {a.filename}</a>
-                <span class="muted">({fmtSize(a.size)})</span>
-              </li>
-            {/each}
-          </ul>
-        {/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+
+          <div class="foot">
+            {#if draft && !bin}
+              <button class="btn text" onclick={() => composeDraft(m)}><Pencil size={18} /> Edit</button>
+            {:else if !bin}
+              <button class="btn text" onclick={() => composeReply(m)}><Reply size={18} /> Reply</button>
+              <button class="btn text" onclick={() => composeForward(m)}><Forward size={18} /> Forward</button>
+            {/if}
+            <span class="spacer"></span>
+            {#if bin}
+              <button class="btn icon" title="Restore this message" aria-label="Restore this message" onclick={() => restoreMessage(m)}>
+                <ArchiveRestore size={24} />
+              </button>
+            {/if}
+            <button
+              class="btn icon"
+              class:danger={confirming === m.id}
+              title={confirming === m.id ? "Tap again to delete forever" : bin ? "Delete forever" : "Move to Bin"}
+              aria-label={confirming === m.id ? "Tap again to delete forever" : bin ? "Delete forever" : "Move to Bin"}
+              onclick={() => removeMessage(m)}
+            >
+              <Trash size={24} />
+            </button>
+          </div>
         {/if}
       </section>
     {/each}
-
-    {#if !bin && last}
-      <div class="replies">
-        <button class="btn" onclick={() => composeReply(last)}><Reply size={16} /> Reply</button>
-        <button class="btn" onclick={() => composeForward(last)}><Forward size={16} /> Forward</button>
-      </div>
-    {/if}
   {/if}
 </article>
 
 <style>
   .view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
     overflow-y: auto;
-    padding-right: 0.25rem;
+    padding: 0 0.25rem 1rem 0;
   }
 
-  .topbar,
-  .armed-note,
-  .replies {
+  .topbar {
     display: none;
   }
 
-  h2 {
-    margin: 0.5rem 0 1rem;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+  .pad {
+    padding: 1rem;
   }
 
-  .message {
-    margin-bottom: 0.75rem;
-    padding: 1.25rem 1.5rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--panel);
-    backdrop-filter: blur(14px);
-  }
-
-  .message.draft {
-    border-style: dashed;
-    border-color: var(--accent-line);
-  }
-
-  header {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.9rem;
-    font-size: 0.85rem;
-  }
-
-  .right {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .badge {
-    margin-right: 0.4rem;
-    padding: 0.05rem 0.55rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    color: var(--muted);
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  .badge.inbox {
-    border-color: var(--accent-line);
-    background: var(--accent-dim);
-    color: var(--accent);
-  }
-
-  pre {
+  .loading {
+    display: grid;
+    place-items: center;
     margin: 0;
-    font-family: var(--mono);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    padding: 3rem;
   }
 
-  .files {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    list-style: none;
-    margin: 0.9rem 0 0;
-    padding: 0;
-    font-size: 0.85rem;
-  }
-
-  .files li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.3rem 0.4rem;
-  }
-
-  /* An image preview sits on its own line above the file name. */
-  .files li > a:has(img) {
-    flex-basis: 100%;
-  }
-
-  .files img {
-    max-width: 160px;
-    max-height: 120px;
-    border-radius: var(--radius-sm);
-    outline: 1px solid var(--line);
-    transition: outline-color 0.15s ease;
-  }
-
-  .files a:hover img {
-    outline-color: var(--accent);
+  /* Material's headlineSmall, as the app titles a conversation. */
+  h2 {
+    margin: 0.5rem 0.25rem 0.25rem;
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1.33;
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-bottom: 1rem;
+    margin: 0 0.25rem 0.25rem;
   }
 
-  /* Collapsed: one line (sender, preview, time); click to open. */
-  .message.collapsed {
-    padding-block: 0.6rem;
-    transition: border-color 0.15s ease;
+  /* Material's card, filled with the same faint white as the app's. */
+  .message {
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    background: rgb(255 255 255 / 5%);
+    overflow: hidden;
   }
 
-  .message.collapsed:hover {
-    border-color: var(--accent-line);
-  }
-
-  .message.collapsed header {
-    flex-wrap: nowrap;
-    margin-bottom: 0;
-  }
-
-  .summary {
+  .head {
     display: flex;
-    flex: 1;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.35rem;
-    min-width: 0;
-    padding: 0;
+    flex-direction: column;
+    width: 100%;
+    padding: 0.875rem;
     border: none;
     background: none;
     color: inherit;
-    font-size: inherit;
+    font-size: 1rem;
     text-align: left;
     cursor: pointer;
   }
 
-  .summary:disabled {
-    cursor: default;
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  .collapsed .summary {
-    flex-wrap: nowrap;
+  .top strong {
+    flex: 1;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .collapsed .summary strong {
-    flex-shrink: 0;
+  .top strong.draft {
+    color: var(--danger);
   }
 
-  .snippet {
+  time,
+  .small {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  time {
+    white-space: nowrap;
+  }
+
+  .small {
+    overflow-wrap: anywhere;
+  }
+
+  .line {
+    overflow: hidden;
+    color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  pre {
+    margin: 0;
+    padding: 0 0.875rem;
+    font-family: var(--mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* Attachments as Material assist chips; images get a preview above. */
+  .files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem 0.875rem;
+  }
+
+  .files li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .files img {
+    display: block;
+    max-width: 160px;
+    max-height: 120px;
+    border-radius: 0.5rem;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 100%;
+    min-height: 2rem;
+    padding: 0 1rem 0 0.5rem;
+    border: 1px solid var(--outline);
+    border-radius: 0.5rem;
+    color: var(--text);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .chip :global(svg) {
+    color: var(--accent);
+  }
+
+  .chip span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .right time {
-    white-space: nowrap;
+  .chip:hover {
+    background: rgb(255 255 255 / 8%);
+    color: var(--text);
   }
 
-  .chevron :global(svg) {
-    transition: transform 0.15s ease;
+  .foot {
+    display: flex;
+    align-items: center;
+    padding: 0.25rem;
   }
 
-  .chevron.open :global(svg) {
-    transform: rotate(180deg);
+  .spacer {
+    flex: 1;
   }
 
-  /* Phones: full-bleed like Gmail's app, with flatter message cards. */
+  .starred {
+    color: var(--star);
+  }
+
+  /* Phones: one screen at a time, under the app's top bar. */
   @media (max-width: 800px) {
     .view {
-      padding: 0 0 2rem;
+      padding: 0 0.75rem 2rem;
     }
 
     .topbar {
@@ -502,84 +489,45 @@
       z-index: 2;
       display: flex;
       justify-content: flex-end;
-      gap: 0.25rem;
-      padding: calc(0.4rem + env(safe-area-inset-top)) 0.5rem 0.4rem;
-      background: var(--panel);
-      backdrop-filter: blur(14px);
+      align-items: center;
+      min-height: 4rem;
+      margin: 0 -0.75rem;
+      padding: env(safe-area-inset-top) 0.25rem 0;
+      background: var(--bg);
     }
 
     .tb {
       display: grid;
       place-items: center;
-      width: 2.75rem;
-      height: 2.75rem;
+      width: 3rem;
+      height: 3rem;
       padding: 0;
       border: none;
       border-radius: 50%;
       background: none;
-      color: var(--text);
+      color: var(--muted);
       cursor: pointer;
     }
 
     .tb:first-child {
       margin-right: auto;
+      color: var(--text);
     }
 
     .tb:hover {
-      background: var(--raised-hover);
+      background: rgb(255 255 255 / 8%);
     }
 
     .tb.armed {
-      background: rgb(255 92 122 / 14%);
       color: var(--danger);
     }
 
-    .armed-note {
-      display: block;
-      margin: 0.5rem 1rem 0;
-      font-size: 0.85rem;
+    .tb.starred {
+      color: var(--star);
     }
 
     .actions {
       display: none;
     }
-
-    h2 {
-      margin: 0.75rem 1rem 1rem;
-      font-size: 1.3rem;
-      font-weight: 500;
-    }
-
-    .message {
-      margin: 0 0 0.5rem;
-      padding: 1rem;
-      border-width: 1px 0;
-      border-radius: 0;
-    }
-
-    .message.collapsed {
-      padding-block: 0.75rem;
-    }
-
-    .right time {
-      font-size: 0.75rem;
-    }
-
-    .replies {
-      display: flex;
-      gap: 0.75rem;
-      padding: 1rem;
-    }
-
-    .replies .btn {
-      flex: 1;
-      justify-content: center;
-      padding-block: 0.65rem;
-      font-size: 0.95rem;
-    }
-  }
-
-  .starred {
-    color: var(--star);
   }
 </style>

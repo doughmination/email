@@ -3,20 +3,29 @@
 -->
 
 <script lang="ts">
-  // One iconsax icon, the set doughmination.gay uses. Sized by `size`, or by a CSS class
+  // One Material icon (outlined), the set the Android app uses. `svg` is the
+  // icon's own markup, from @material-design-icons/svg; it's a constant in
+  // each icon's component, never user input. Sized by `size`, or by a CSS class.
   let {
-    name,
+    svg,
     size = 24,
-    type = "bulk",
     class: className = "",
     ...rest
   }: {
-    name: string;
+    svg: string;
     size?: number;
-    type?: "bold" | "broken" | "bulk" | "linear" | "outline" | "twotone";
     class?: string;
     [key: string]: unknown;
   } = $props();
 </script>
 
-<iconsax-icon {name} {type} {size} class={className} aria-hidden="true" {...rest}></iconsax-icon>
+<svg class="icon {className}" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...rest}>
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  {@html svg}
+</svg>
+
+<style>
+  .icon {
+    flex-shrink: 0;
+  }
+</style>

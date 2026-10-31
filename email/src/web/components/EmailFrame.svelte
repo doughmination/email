@@ -30,8 +30,8 @@
   let showRemote = $state(false);
 
   const BASE_STYLE =
-    ":root{color-scheme:light}body{margin:0;padding:16px;background:#fff;color:#111;" +
-    "font:14px/1.5 -apple-system,system-ui,sans-serif;overflow-wrap:anywhere}" +
+    ":root{color-scheme:light}body{margin:0;padding:12px;background:#fff;color:#111;" +
+    "font:15px/1.5 -apple-system,system-ui,sans-serif;overflow-wrap:anywhere}" +
     "img{max-width:100%;height:auto}pre{white-space:pre-wrap}table{max-width:100%}";
 
   const body = $derived.by(() => {
@@ -75,7 +75,7 @@
 
 {#if hasRemote && !showRemote}
   <button class="btn remote" onclick={() => (showRemote = true)}>
-    <ImageIcon size={14} /> Load remote images
+    <ImageIcon size={18} /> Load remote images
   </button>
 {/if}
 
@@ -90,16 +90,16 @@
 ></iframe>
 
 <style>
-  /* Emails are designed for a light page, so the frame stays white. */
+  /* Emails are designed for a light page, so the frame stays white, edge to
+     edge across the message card as in the app. */
   iframe {
     display: block;
     width: 100%;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
+    border: none;
     background: #fff;
   }
 
   .remote {
-    margin-bottom: 0.6rem;
+    margin: 0 0.875rem 0.5rem;
   }
 </style>

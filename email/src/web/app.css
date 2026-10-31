@@ -5,10 +5,11 @@
  */
 
 /* Global tokens and base only; components carry their own scoped styles.
-   The look follows ~/projects/web (theme.css, header.css, contact.css):
-   translucent raised surfaces, hairline borders, rounded cards that pick up
-   an accent ring on hover, pill buttons. IBM Plex Sans for text and Comic Code
-   for monospace, as on doughmination.gay.
+   The colours, wallpaper and type follow ~/projects/web (theme.css,
+   header.css): translucent surfaces, hairline borders, IBM Plex Sans for text
+   and Comic Code for monospace, as on doughmination.gay. The controls follow
+   the Android app instead: Material 3 buttons, text fields and icons, so the
+   two look the same.
 
    Email content never sees any of this: it renders inside EmailFrame's
    iframe, which is also what keeps an email's fonts and styles off the app. */
@@ -90,6 +91,15 @@
   --accent-line: rgb(235 69 158 / 40%);
   --panel: rgb(11 10 13 / 72%);
   --danger: #ff5c7a;
+  /* From the Android app's Material colour scheme (ui/Theme.kt). */
+  --outline: #3a3640;
+  --outline-variant: #26222b;
+  --surface-low: #131116;
+  --surface-high: #1e1b22;
+  --primary-container: #3a1a2c;
+  --on-primary-container: #ffd8ea;
+  --secondary-container: #2a1a24;
+  --on-secondary-container: #ffd8ea;
   --star: #f7c948;
   --radius: 1rem;
   --radius-sm: 0.5rem;
@@ -174,60 +184,88 @@ a:hover {
   box-shadow: 0 0 0 4px var(--accent-dim);
 }
 
-/* Buttons: pills, as on the site's contact page. */
+/* Buttons: Material 3, as in the Android app. A plain .btn is an outlined
+   button, .accent a filled one, .text a text button and .icon an icon button.
+   Hovering lays a tint over the button, as Material's state layers do. */
 
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.95rem;
-  border: 1px solid var(--line);
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 1.5rem;
+  border: 1px solid var(--outline);
   border-radius: 999px;
-  background: var(--raised);
-  color: var(--text);
+  background: transparent;
+  color: var(--accent);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 500;
+  letter-spacing: 0.01em;
   text-decoration: none;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    filter 0.15s ease;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
 }
 
-.btn:hover:not(:disabled) {
-  border-color: var(--accent-line);
-  box-shadow: 0 0 0 4px var(--accent-dim);
+.btn:has(> svg:first-child) {
+  padding-left: 1rem;
+}
+
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.btn:hover:not(:disabled)::after {
+  opacity: 0.08;
+}
+
+.btn:active:not(:disabled)::after,
+.btn:focus-visible::after {
+  opacity: 0.12;
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.38;
   cursor: default;
 }
 
 .btn.accent {
-  border-color: var(--accent);
+  border-color: transparent;
   background: var(--accent);
   color: #fff;
-  font-weight: 600;
 }
 
 .btn.accent:hover:not(:disabled) {
-  filter: brightness(1.12);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 40%);
+}
+
+.btn.text {
+  padding: 0 0.75rem;
+  border-color: transparent;
 }
 
 .btn.danger {
-  border-color: rgb(255 92 122 / 40%);
   color: var(--danger);
 }
 
-.btn.danger:hover:not(:disabled) {
-  border-color: var(--danger);
-  box-shadow: 0 0 0 4px rgb(255 92 122 / 14%);
+.btn.icon {
+  width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border-color: transparent;
+  color: var(--muted);
 }
 
-.btn.icon {
-  padding: 0.4rem;
+.btn.icon.danger {
+  color: var(--danger);
 }
 
 /* Cards: the site's project/contact tiles. */
@@ -260,14 +298,15 @@ a:hover {
   text-transform: uppercase;
 }
 
+/* Material's outlined text field, as in the app. */
 .field input,
 .field select,
 .field textarea,
 .input {
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: rgb(0 0 0 / 25%);
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--outline);
+  border-radius: 4px;
+  background: transparent;
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 400;
@@ -283,8 +322,8 @@ a:hover {
 .field textarea:focus,
 .input:focus {
   outline: none;
-  border-color: var(--accent-line);
-  box-shadow: 0 0 0 4px var(--accent-dim);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 /* Phones: 16px fields, or iOS Safari zooms the page on focus. */
@@ -336,10 +375,4 @@ kbd,
 pre,
 samp {
   font-family: var(--mono);
-}
-
-/* iconsax renders its <svg> inside the element */
-iconsax-icon {
-  display: inline-flex;
-  flex-shrink: 0;
 }

@@ -73,14 +73,13 @@
   <p class="muted boot">Loading…</p>
 {:else}
   <div class="shell" class:reading>
-    <!-- Phones only: a Gmail-style app bar over the list. -->
+    <!-- Phones only: the app's Material top bar over the list. -->
     <header class="appbar">
-      <button class="menu-btn" aria-label="Menu" aria-expanded={drawer} onclick={() => (drawer = true)}><Menu size={22} /></button>
+      <button class="menu-btn" aria-label="Folders" aria-expanded={drawer} onclick={() => (drawer = true)}><Menu size={24} /></button>
       <div class="appbar-title">
         <span>{title}</span>
         {#if router.mailbox}<span class="muted mailbox">{router.mailbox}</span>{/if}
       </div>
-      <span class="avatar" title={session.me.username}>{(session.me.name || session.me.username).charAt(0).toUpperCase()}</span>
     </header>
 
     <Sidebar open={drawer} onclose={() => (drawer = false)} />
@@ -103,7 +102,7 @@
   </div>
 
   {#if route.name === "folder" && !reading}
-    <button class="fab" class:demo-offset={isDemo} onclick={composeNew}><SquarePen size={20} /> Compose</button>
+    <button class="fab" class:demo-offset={isDemo} onclick={composeNew}><SquarePen size={24} /> Compose</button>
   {/if}
 
   {#if composer.open}
@@ -186,20 +185,16 @@
     .appbar {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      margin: calc(0.5rem + env(safe-area-inset-top)) 0.75rem 0.5rem;
-      padding: 0.3rem 0.5rem 0.3rem 0.3rem;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--panel);
-      backdrop-filter: blur(14px);
+      gap: 0.25rem;
+      min-height: 4rem;
+      padding: env(safe-area-inset-top) 0.25rem 0;
     }
 
     .menu-btn {
       display: grid;
       place-items: center;
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 3rem;
+      height: 3rem;
       padding: 0;
       border: none;
       border-radius: 50%;
@@ -209,16 +204,17 @@
     }
 
     .menu-btn:hover {
-      background: var(--raised-hover);
+      background: rgb(255 255 255 / 8%);
     }
 
+    /* Material's titleLarge, with the mailbox under it as the app shows it. */
     .appbar-title {
       display: flex;
       flex: 1;
-      align-items: baseline;
-      gap: 0.5rem;
+      flex-direction: column;
       min-width: 0;
-      font-weight: 600;
+      font-size: 1.375rem;
+      line-height: 1.3;
     }
 
     .appbar-title span {
@@ -228,23 +224,11 @@
     }
 
     .mailbox {
-      font-size: 0.8rem;
-      font-weight: 400;
+      font-size: 0.75rem;
+      font-weight: 500;
     }
 
-    .avatar {
-      display: grid;
-      flex-shrink: 0;
-      place-items: center;
-      width: 2rem;
-      height: 2rem;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #fff;
-      font-size: 0.9rem;
-      font-weight: 700;
-    }
-
+    /* Material's extended floating action button. */
     .fab {
       position: fixed;
       right: 1rem;
@@ -252,14 +236,16 @@
       z-index: 5;
       display: inline-flex;
       align-items: center;
-      gap: 0.6rem;
-      padding: 1rem 1.25rem;
+      gap: 0.75rem;
+      min-height: 3.5rem;
+      padding: 0 1.25rem 0 1rem;
       border: none;
-      border-radius: 1.1rem;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
-      box-shadow: 0 6px 20px rgb(0 0 0 / 45%);
+      border-radius: 1rem;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 3px 8px rgb(0 0 0 / 40%);
       cursor: pointer;
     }
 

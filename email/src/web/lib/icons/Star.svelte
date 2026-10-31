@@ -5,16 +5,9 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
 
-  // `fill="currentColor"` (lucide's way of saying starred) becomes iconsax's solid style
-  let {
-    fill = "none",
-    ...props
-  }: {
-    fill?: string;
-    size?: number;
-    class?: string;
-    [key: string]: unknown;
-  } = $props();
+  // Filled when `fill` is set (starred), an outline otherwise, as in the app.
+  let { fill = "none", ...props }: { size?: number; class?: string; fill?: string; [key: string]: unknown } = $props();
 </script>
 
-<Icon name="star" type={fill === "none" ? "linear" : "bold"} {...props} />
+<!-- Material "star" and "star_outline" -->
+<Icon svg={fill === "none" ? `<path d="m22 9.24-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/>` : `<path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z"/>`} {...props} />

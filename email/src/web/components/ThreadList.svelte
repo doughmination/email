@@ -6,8 +6,8 @@
   import ArchiveRestore from "../lib/icons/ArchiveRestore.svelte";
   import CircleX from "../lib/icons/CircleX.svelte";
   import Eye from "../lib/icons/Eye.svelte";
-  import Mail from "../lib/icons/Mail.svelte";
-  import MailOpen from "../lib/icons/MailOpen.svelte";
+  import MarkRead from "../lib/icons/MarkRead.svelte";
+  import MarkUnread from "../lib/icons/MarkUnread.svelte";
   import Paperclip from "../lib/icons/Paperclip.svelte";
   import Star from "../lib/icons/Star.svelte";
   import StarOff from "../lib/icons/StarOff.svelte";
@@ -188,7 +188,7 @@
     if (folder !== "inbox" && folder !== "starred") return undefined;
     return {
       label: thread.unread ? "Read" : "Unread",
-      icon: thread.unread ? MailOpen : Mail,
+      icon: thread.unread ? MarkRead : MarkUnread,
       tone: "accent",
       dismiss: false,
       run: () => toggleRead(thread),
@@ -233,7 +233,7 @@
       ? [
           {
             label: thread.unread ? "Mark as read" : "Mark as unread",
-            icon: thread.unread ? MailOpen : Mail,
+            icon: thread.unread ? MarkRead : MarkUnread,
             run: () => toggleRead(thread),
           },
         ]
