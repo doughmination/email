@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import type { ComposeInput, Me } from "../../shared/types";
+import { SWIPE_ACTIONS, type ComposeInput, type Me } from "../../shared/types";
 import { isAddress } from "../lib/address";
 import type { AppEnv } from "../middleware";
 import { MAX_UPLOAD_BYTES, getAttachment, saveUpload } from "../services/attachments";
-import { addressesFor, displayName, enabledDomains, setDisplayName } from "../services/directory";
+import { addressesFor, enabledDomains, profile, setDisplayName, setPreferences } from "../services/directory";
 import {
   deleteMessage,
   deleteThread,
@@ -59,13 +59,26 @@ function composeError(err: unknown): string {
 export const mail = new Hono<AppEnv>()
   .get("/me", async (c) => {
     const { username, isAdmin } = c.get("user");
-    const [name, addresses, domains] = await Promise.all([
-      displayName(c.env, username),
+    const [prof, addresses, domains] = await Promise.all([
+      profile(c.env, username),
       addressesFor(c.env, username),
       enabledDomains(c.env),
     ]);
-    return c.json<Me>({ username, name: name || null, isAdmin, addresses, domains, pushPublicKey: pushPublicKey(c.env) });
+    return c.json<Me>({ username, ...prof, isAdmin, addresses, domains, pushPublicKey: pushPublicKey(c.env) });
   })
+
+  .patch(
+    "/me/preferences",
+    zValidator(
+      "json",
+      z.object({
+        usePicture: z.boolean().optional(),
+        swipeLeft: z.enum(SWIPE_ACTIONS).optional(),
+        swipeRight: z.enum(SWIPE_ACTIONS).optional(),
+      }),
+    ),
+    async (c) => c.json(await setPreferences(c.env, c.get("user").username, c.req.valid("json"))),
+  )
 
   // An empty name is kept as "" rather than NULL, so the SSO's doesn't come back on the next sign-in.
   .patch("/me", zValidator("json", z.object({ name: z.string().trim().max(100) })), async (c) => {

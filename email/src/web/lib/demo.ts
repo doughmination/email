@@ -16,6 +16,7 @@ import type {
   Me,
   Message,
   Page,
+  Preferences,
   Thread,
   ThreadSummary,
   UserInfo,
@@ -144,6 +145,8 @@ export function createDemoApi(): Api {
     { username: "ari", name: "Ari Lane", isAdmin: false, createdAt: Date.now() - 60 * DAY, lastLoginAt: Date.now() - 2 * DAY },
   ];
   const myName = () => users.find((u) => u.username === ME)!.name;
+  // The mascot stands in for an SSO picture.
+  const prefs: Preferences = { usePicture: true, swipeLeft: "bin", swipeRight: "read" };
 
   /** Blob or data: URLs for attachment bytes, by attachment id. */
   const files = new Map<string, string>();
@@ -470,7 +473,14 @@ export function createDemoApi(): Api {
         addresses: addressesOf(ME),
         domains: domains.filter((d) => d.enabled).map((d) => d.name),
         pushPublicKey: null,
+        picture: "/icon.svg",
+        ...prefs,
       })),
+    setPreferences: (changes) =>
+      later(() => {
+        Object.assign(prefs, changes);
+        return { ...prefs };
+      }),
     // Reloading the page starts the demo over.
     logout: () => later(() => ({ endSession: "/demo" as string | null })),
     setName: (name) =>

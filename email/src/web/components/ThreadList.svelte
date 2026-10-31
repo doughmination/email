@@ -14,7 +14,7 @@
   import Trash2 from "../lib/icons/Trash2.svelte";
   import { flip } from "svelte/animate";
   import { fly, slide } from "svelte/transition";
-  import type { ListFolder, ThreadSummary } from "../../shared/types";
+  import type { ListFolder, SwipeAction as SwipeChoice, ThreadSummary } from "../../shared/types";
   import { api } from "../lib/api";
   import { displayName, fmtTime } from "../lib/format";
   import { router } from "../lib/router.svelte";
@@ -185,25 +185,47 @@
         run: () => restore(thread),
       };
     }
-    if (folder !== "inbox" && folder !== "starred") return undefined;
-    return {
-      label: thread.unread ? "Read" : "Unread",
-      icon: thread.unread ? MarkRead : MarkUnread,
-      tone: "accent",
-      dismiss: false,
-      run: () => toggleRead(thread),
-    };
+    return swipe(session.me?.swipeRight ?? "read", thread);
   }
 
   function swipeLeft(thread: ThreadSummary): SwipeAction | undefined {
     if (folder === "bin") return undefined;
-    return {
-      label: "Bin",
-      icon: Trash2,
-      tone: "danger",
-      dismiss: true,
-      run: () => moveToBin(thread),
-    };
+    return swipe(session.me?.swipeLeft ?? "bin", thread);
+  }
+
+  /** What a swipe set up in Settings does to this row; nothing where it can't apply. */
+  function swipe(choice: SwipeChoice, thread: ThreadSummary): SwipeAction | undefined {
+    switch (choice) {
+      case "read":
+        // Only received mail has a read state.
+        if (folder !== "inbox" && folder !== "starred") return undefined;
+        return {
+          label: thread.unread ? "Read" : "Unread",
+          icon: thread.unread ? MarkRead : MarkUnread,
+          tone: "accent",
+          dismiss: false,
+          run: () => toggleRead(thread),
+        };
+      case "star":
+        return {
+          label: thread.starred ? "Unstar" : "Star",
+          icon: thread.starred ? StarOff : Star,
+          tone: "accent",
+          // Unstarring takes it out of Starred.
+          dismiss: folder === "starred" && thread.starred,
+          run: () => toggleStar(thread),
+        };
+      case "bin":
+        return {
+          label: "Bin",
+          icon: Trash2,
+          tone: "danger",
+          dismiss: true,
+          run: () => moveToBin(thread),
+        };
+      case "none":
+        return undefined;
+    }
   }
 
   function menuItems(thread: ThreadSummary): MenuItem[] {

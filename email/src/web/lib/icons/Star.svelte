@@ -5,8 +5,9 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
 
-  // Filled when `fill` is set (starred), an outline otherwise, as in the app.
-  let { fill = "none", ...props }: { size?: number; class?: string; fill?: string; [key: string]: unknown } = $props();
+  // Filled unless `fill` is "none", as in the app: the list and thread pass it
+  // to show whether a thread is starred; menus and swipes show it filled.
+  let { fill = "currentColor", ...props }: { size?: number; class?: string; fill?: string; [key: string]: unknown } = $props();
 </script>
 
 <!-- Material "star" and "star_outline" -->

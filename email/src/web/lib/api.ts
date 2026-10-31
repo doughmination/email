@@ -7,6 +7,7 @@ import type {
   Me,
   Message,
   Page,
+  Preferences,
   Thread,
   ThreadSummary,
   UserInfo,
@@ -55,6 +56,8 @@ const server = {
   me: () => get<Me>("/api/me"),
   logout: () => post<{ endSession: string | null }>("/auth/logout"),
   setName: (name: string) => patch<{ name: string | null }>("/api/me", { name }),
+  /** Saves the preferences given; returns them all. */
+  setPreferences: (prefs: Partial<Preferences>) => patch<Preferences>("/api/me/preferences", prefs),
 
   threads(folder: ListFolder, mailbox: string | null, cursor?: string | null) {
     const q = new URLSearchParams({ folder });

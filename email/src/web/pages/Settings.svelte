@@ -10,8 +10,33 @@
   import { api } from "../lib/api";
   import { router } from "../lib/router.svelte";
   import { session } from "../lib/state.svelte";
+  import AccountPicture from "../components/AccountPicture.svelte";
+  import type { Preferences, SwipeAction } from "../../shared/types";
 
   let name = $state(session.me?.name ?? "");
+  let prefsStatus = $state("");
+
+  const swipeLabels: Record<SwipeAction, string> = {
+    none: "Nothing",
+    read: "Mark as read or unread",
+    star: "Star or unstar",
+    bin: "Move to Bin",
+  };
+
+  /** Shows the change straight away, and puts it back if the server says no. */
+  async function savePreferences(changes: Partial<Preferences>) {
+    const me = session.me;
+    if (!me) return;
+    const before: Preferences = { usePicture: me.usePicture, swipeLeft: me.swipeLeft, swipeRight: me.swipeRight };
+    Object.assign(me, changes);
+    prefsStatus = "";
+    try {
+      Object.assign(me, await api.setPreferences(changes));
+    } catch (err) {
+      Object.assign(me, before);
+      prefsStatus = (err as Error).message;
+    }
+  }
   let nameStatus = $state("");
   let subscription = $state<PushSubscription | null>(null);
   let status = $state("");
@@ -78,6 +103,49 @@
       <button class="btn accent" disabled={name.trim() === (session.me?.name ?? "")}>Save</button>
     </form>
     {#if nameStatus}<p class="muted">{nameStatus}</p>{/if}
+  </section>
+
+  <section>
+    <h2>Profile picture</h2>
+    <label class="pfp">
+      <AccountPicture size={56} />
+      <span class="grow">
+        <span>Use your account's picture</span>
+        <span class="muted small">
+          {session.me?.picture
+            ? "The one on your Doughmination account. Off shows your initial instead."
+            : "Your Doughmination account has no picture, so your initial shows."}
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        class="switch"
+        checked={!!session.me?.usePicture && !!session.me?.picture}
+        disabled={!session.me?.picture}
+        onchange={(e) => savePreferences({ usePicture: e.currentTarget.checked })}
+      />
+    </label>
+  </section>
+
+  <section>
+    <h2>Swipe actions</h2>
+    <p class="muted">What swiping a conversation in the list does, here and in the app. Read and unread only applies to received mail, and in the Bin a swipe right always restores.</p>
+    <div class="swipes">
+      <label class="field">
+        Swipe right
+        <select value={session.me?.swipeRight} onchange={(e) => savePreferences({ swipeRight: e.currentTarget.value as SwipeAction })}>
+          {#each Object.entries(swipeLabels) as [value, label] (value)}<option {value}>{label}</option>{/each}
+        </select>
+      </label>
+      <label class="field">
+        Swipe left
+        <select value={session.me?.swipeLeft} onchange={(e) => savePreferences({ swipeLeft: e.currentTarget.value as SwipeAction })}>
+          {#each Object.entries(swipeLabels) as [value, label] (value)}<option {value}>{label}</option>{/each}
+        </select>
+      </label>
+    </div>
+    {#if prefsStatus}<p class="error">{prefsStatus}</p>{/if}
   </section>
 
   <section>
@@ -174,6 +242,85 @@
 
   ul li {
     overflow-wrap: anywhere;
+  }
+
+  .pfp {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+  }
+
+  .grow {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .small {
+    font-size: 0.85rem;
+  }
+
+  .swipes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  .swipes option {
+    background: var(--surface-high);
+  }
+
+  /* Material's switch. */
+  .switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 52px;
+    height: 32px;
+    margin: 0;
+    border: 2px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface-high);
+    appearance: none;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .switch::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--outline);
+    transform: translateY(-50%);
+    transition:
+      left 0.15s ease,
+      width 0.15s ease,
+      height 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .switch:checked {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .switch:checked::before {
+    left: 22px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+  }
+
+  .switch:disabled {
+    opacity: 0.38;
+    cursor: default;
   }
 
   .link {

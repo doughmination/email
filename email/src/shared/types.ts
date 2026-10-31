@@ -8,10 +8,24 @@ export type Folder = "inbox" | "sent" | "drafts";
  */
 export type ListFolder = Folder | "bin" | "starred";
 
-export interface Me {
+/** What swiping a row does: toggle read, toggle starred, move to the Bin, or nothing. */
+export const SWIPE_ACTIONS = ["none", "read", "star", "bin"] as const;
+export type SwipeAction = (typeof SWIPE_ACTIONS)[number];
+
+/** Settings that follow the user between the web and the app. */
+export interface Preferences {
+  /** Show `picture` as the account's picture; otherwise the default (an initial). */
+  usePicture: boolean;
+  swipeLeft: SwipeAction;
+  swipeRight: SwipeAction;
+}
+
+export interface Me extends Preferences {
   username: string;
   /** Display name put on outgoing mail; null sends from the bare address. */
   name: string | null;
+  /** The account's picture on the SSO (https), whether or not it's in use. */
+  picture: string | null;
   isAdmin: boolean;
   /** Every address this user can send from, across all enabled domains. */
   addresses: string[];

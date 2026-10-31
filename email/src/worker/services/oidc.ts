@@ -32,6 +32,7 @@ interface Discovery {
   jwks_uri: string;
   end_session_endpoint?: string;
   revocation_endpoint?: string;
+  userinfo_endpoint?: string;
 }
 
 // Cached per isolate; the issuer never changes without a deploy.
@@ -83,6 +84,29 @@ function pickName(claims: Record<string, unknown>): string | null {
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const name = str(claims.name) || [str(claims.given_name), str(claims.family_name)].filter(Boolean).join(" ");
   return name ? name.slice(0, 100) : null;
+}
+
+/** The account's picture, if the SSO gives one. Only https, so it can load anywhere. */
+function pickPicture(claims: Record<string, unknown>): string | null {
+  const raw = typeof claims.picture === "string" ? claims.picture.trim() : "";
+  if (!raw || raw.length > 2000) return null;
+  try {
+    return new URL(raw).protocol === "https:" ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Some SSOs only put `picture` in userinfo, not the ID token. */
+async function userinfoPicture(cfg: OidcConfig, accessToken: string | undefined): Promise<string | null> {
+  const d = await getDiscovery(cfg);
+  if (!d.userinfo_endpoint || !accessToken) return null;
+  try {
+    const res = await fetch(d.userinfo_endpoint, { headers: { Authorization: `Bearer ${accessToken}` } });
+    return res.ok ? pickPicture((await res.json()) as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 function pickUsername(claims: Record<string, unknown>): string {
@@ -153,6 +177,8 @@ export interface TokenSet {
   username: string;
   /** From the ID token; absent when the SSO doesn't share one. */
   name?: string | null;
+  /** From the ID token or userinfo; null when the SSO has none. */
+  picture?: string | null;
   sub: string;
   refreshToken: string | null;
   idToken: string;
@@ -163,7 +189,7 @@ export class GrantRejected extends Error {}
 async function tokenRequest(
   cfg: OidcConfig,
   params: Record<string, string>,
-): Promise<{ id_token?: string; refresh_token?: string }> {
+): Promise<{ id_token?: string; refresh_token?: string; access_token?: string }> {
   const d = await getDiscovery(cfg);
   const res = await fetch(d.token_endpoint, {
     method: "POST",
@@ -187,7 +213,7 @@ async function tokenRequest(
     if (error === "invalid_grant") throw new GrantRejected(text);
     throw new Error(`token request failed (${res.status}): ${text}`);
   }
-  return (await res.json()) as { id_token?: string; refresh_token?: string };
+  return (await res.json()) as { id_token?: string; refresh_token?: string; access_token?: string };
 }
 
 async function verifyIdToken(cfg: OidcConfig, idToken: string): Promise<JWTPayload> {
@@ -218,6 +244,7 @@ export async function completeLogin(env: Env, code: string, pending: Pending): P
   return {
     username,
     name: pickName(payload as Record<string, unknown>),
+    picture: pickPicture(payload as Record<string, unknown>) ?? (await userinfoPicture(cfg, tokens.access_token)),
     sub: String(payload.sub || ""),
     refreshToken: tokens.refresh_token ?? null,
     idToken: tokens.id_token,
@@ -232,11 +259,14 @@ export async function completeLogin(env: Env, code: string, pending: Pending): P
 export async function refreshSession(
   env: Env,
   refreshToken: string,
-): Promise<{ sub: string; refreshToken: string | null; idToken: string | null }> {
+): Promise<{ sub: string; refreshToken: string | null; idToken: string | null; picture?: string | null }> {
   const cfg = config(env);
   const tokens = await tokenRequest(cfg, { grant_type: "refresh_token", refresh_token: refreshToken });
   const payload = tokens.id_token ? await verifyIdToken(cfg, tokens.id_token) : null;
+  // Only when the new ID token says: one without the claim isn't news that it's gone.
+  const claims = payload as Record<string, unknown> | null;
   return {
+    ...(claims && "picture" in claims ? { picture: pickPicture(claims) } : {}),
     sub: payload ? String(payload.sub || "") : "",
     refreshToken: tokens.refresh_token ?? null,
     idToken: tokens.id_token ?? null,

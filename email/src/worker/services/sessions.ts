@@ -1,3 +1,4 @@
+import { setPicture } from "./directory";
 import { GrantRejected, refreshSession, type Pending, type TokenSet } from "./oidc";
 
 // Sessions live in D1 so they can be ended from the server side, and each one
@@ -117,6 +118,8 @@ async function revalidate(env: Env, token: string, session: Session): Promise<Se
         await deleteSession(env, token);
         return null;
       }
+      // The account's picture may have changed on the SSO since sign-in.
+      if (fresh.picture !== undefined) await setPicture(env, session.sub, fresh.picture);
       const at = now();
       const updated: Session = {
         ...session,

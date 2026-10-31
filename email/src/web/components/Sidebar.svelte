@@ -9,7 +9,6 @@
   import Globe from "../lib/icons/Globe.svelte";
   import InboxIcon from "../lib/icons/Inbox.svelte";
   import LogOut from "../lib/icons/LogOut.svelte";
-  import Mail from "../lib/icons/Mail.svelte";
   import Mobile from "../lib/icons/Mobile.svelte";
   import Send from "../lib/icons/Send.svelte";
   import SettingsIcon from "../lib/icons/Settings.svelte";
@@ -21,6 +20,7 @@
   import { api } from "../lib/api";
   import { router } from "../lib/router.svelte";
   import { composeNew, session } from "../lib/state.svelte";
+  import AccountPicture from "./AccountPicture.svelte";
 
   /** Phones: whether the drawer is out. Ignored on wider screens. */
   let { open = false, onclose = () => {} }: { open?: boolean; onclose?: () => void } = $props();
@@ -69,7 +69,7 @@
      settings. On wide screens it's the sidebar, with a compose button. -->
 <nav class="sidebar" class:open>
   <div class="who">
-    <Mail size={24} />
+    <AccountPicture size={40} />
     <div>
       <p class="name">{session.me?.name || session.me?.username || "Inbox"}</p>
       {#if session.me?.addresses[0]}<p class="address">{session.me.addresses[0]}</p>{/if}
@@ -151,7 +151,6 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    color: var(--accent);
   }
 
   .who p {
