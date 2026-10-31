@@ -6,8 +6,4 @@ import { defineConfig } from "vite";
 // with its D1/R2 bindings (local copies under .wrangler/).
 export default defineConfig({
   plugins: [svelte(), cloudflare()],
-  // iconsax fetches its icon data relative to its own file, which pre-bundling breaks
-  optimizeDeps: {
-    exclude: ["iconsax"],
-  },
 });

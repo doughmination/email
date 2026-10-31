@@ -21,9 +21,9 @@
   import type { HoldPoint } from "./SwipeRow.svelte";
 
   let {
-    title,
-    items,
-    at,
+    title: openTitle,
+    items: openItems,
+    at: openAt,
     onclose,
   }: {
     title: string;
@@ -31,6 +31,15 @@
     at: HoldPoint;
     onclose: () => void;
   } = $props();
+
+  // Kept as they were when the menu opened. The list closes it by clearing
+  // what these came from, and the closing transition still renders after that.
+  // svelte-ignore state_referenced_locally
+  const title = openTitle;
+  // svelte-ignore state_referenced_locally
+  const items = openItems;
+  // svelte-ignore state_referenced_locally
+  const at = openAt;
 
   let menu: HTMLDivElement;
   let menuWidth = $state(0);
