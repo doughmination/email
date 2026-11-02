@@ -44,8 +44,8 @@ test/                  vitest, running inside workerd with local D1 + R2
   verifier at `POST /auth/app/token` for a session token, and sends it as
   `Authorization: Bearer`. Its `Models.kt` mirrors `src/shared/types.ts` by
   hand, so API shape changes need a matching app change there.
-- **`/download`** redirects to the newest APK on the app's rolling
-  `inbox-latest` release in doughmination/apps, falling back to this
+- **`/download`** redirects to `inbox.apk` on doughmination/apps' rolling
+  `latest` release (every app's newest build), falling back to this
   repository's old `latest` release.
 
 ## Setup
