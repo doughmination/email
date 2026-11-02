@@ -3,7 +3,7 @@
 A multi-domain mailbox on Cloudflare Workers. Mail comes in and goes out through
 [Resend](https://resend.com), people sign in through the SSO, and every user gets
 `<username>@<domain>` on each domain that's switched on. There's no config file:
-domains, aliases and admins are managed from the Admin page.
+domains, aliases and admins are managed from the Admin page
 
 ## How it fits together
 
